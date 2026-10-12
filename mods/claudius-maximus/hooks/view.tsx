@@ -139,23 +139,22 @@ export function band(ui: Ui, d: BandData) {
     const glyph = EFFORT_GLYPH[d.effort] ?? '◑'
     chips.push(chip(`${glyph} ${d.effort}`, stops, d.effort === 'low' ? '#e2e8f0' : PAL.ink))
   }
-  const row1 = (
-    <Box flexDirection="row" justifyContent="space-between" gap={2}>
-      <Box flexDirection="row" gap={1}>
-        {chips}
-      </Box>
-      <Box flexDirection="row" gap={1}>
-        <Text>
-          {[...BRAND].map((c, i, a) => (
-            <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
-              {c}
-            </Text>
-          ))}
-        </Text>
-        <Text color={PAL.mute} dimColor>
-          {versionLabel()}
-        </Text>
-      </Box>
+  // Text columns the chips take, so the session block beside them gets the rest.
+  const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
+  const blockCols = d.cols - chipsWidth - 2
+
+  const brand = (
+    <Box flexDirection="row" gap={1}>
+      <Text>
+        {[...BRAND].map((c, i, a) => (
+          <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+            {c}
+          </Text>
+        ))}
+      </Text>
+      <Text color={PAL.mute} dimColor>
+        {versionLabel()}
+      </Text>
     </Box>
   )
 
@@ -190,7 +189,7 @@ export function band(ui: Ui, d: BandData) {
       2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
     let keep = extras.length
     const room = (k: number) =>
-      d.cols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
+      blockCols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
     while (keep > 0 && room(keep) < 8 * cellCols) keep--
     const width = Math.max(8, Math.min(cellCols === 2 ? 30 : 40, Math.floor(room(keep) / cellCols)))
     const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
@@ -273,10 +272,19 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
-      {row1}
-      {barRow}
-      {labelRow}
-      {last}
+      <Box flexDirection="row" gap={2}>
+        <Box flexDirection="row" gap={1} alignSelf="flex-start">
+          {chips}
+        </Box>
+        <Box flexDirection="column" flexShrink={1}>
+          {barRow}
+          {labelRow}
+        </Box>
+      </Box>
+      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+        <Box flexShrink={1}>{last}</Box>
+        {brand}
+      </Box>
     </Box>
   )
 }
