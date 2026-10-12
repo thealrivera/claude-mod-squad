@@ -74,13 +74,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.redraw()
 
     expect(await ui.find({ type: 'Text', text: /50%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Burned 50%/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /resets in 1h 30m/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Burned 50%/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Pace Burn 100%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Burned/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Pace Burn/ })).toBeDefined()
     // a plan never shows cost, and context only shows once it is nearly full
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /out in ~/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /week 90%/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     expect(toasts.length).toBe(0)
@@ -104,7 +105,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+    // in a 110-column band the verdict leaves no room for a quip, so the verdict stands alone
+    expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
@@ -151,5 +153,23 @@ test('a plan is remembered, so cost stays hidden before the first reading of a l
     props: PROPS,
   })
   expect(await ui.find({ type: 'Text', text: /\$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a wide band has room for the verdict and a quip together', async ($, on) => {
+  mock.clock(on, { now: T0 + 30_000 })
+  mock.store(on)
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+
+  const ui = await $.ui.mount({
+    plugin: 'claudius-maximus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { ...PROPS, bodyColumns: 240 },
+  })
+  await $.session.measure(reading(20, 30))
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /On track|hit the limit/ })).toBeDefined()
   await ui.unmount()
 })

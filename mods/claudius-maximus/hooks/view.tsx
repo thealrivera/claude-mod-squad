@@ -106,6 +106,33 @@ export function band(ui: Ui, d: BandData) {
   const fc = forecast(d.samples, five, d.now)
   const warns = warnings(d.effort, d.isUltracode, d.limits)
 
+  // The forecast, in words.
+  const early = (fc.msToReset ?? 0) - (fc.msToEmpty ?? 0)
+  let verdict = ''
+  let verdictColor: string = PAL.mute
+  if (five) {
+    switch (fc.state) {
+      case 'danger':
+        verdict = `You'll hit the limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before it resets.`
+        verdictColor = BAD
+        break
+      case 'ok':
+      case 'tight':
+        verdict = `On track to end the session near ${fmtPct(Math.min(100, fc.projected))}.`
+        verdictColor = fc.state === 'ok' ? GOOD : WATCH
+        break
+      case 'limit':
+        verdict = 'Limit reached. It resets when the timer runs out.'
+        verdictColor = BAD
+        break
+      case 'idle':
+        verdict = 'Quiet right now, nothing is burning.'
+        break
+      default:
+        verdict = 'Still learning your pace.'
+    }
+  }
+
   // ---- row 1: what is running, and who is running it ---------------------
 
   const model = prettyModel(d.model)
@@ -160,22 +187,11 @@ export function band(ui: Ui, d: BandData) {
   } else {
     const color = STATUS[fc.state]
     const pct = fmtPct(five.percentUsed)
-    const projected = fmtPct(Math.min(100, fc.projected))
     const showPace = fc.state === 'ok' || fc.state === 'tight' || fc.state === 'danger'
     const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
-    const note =
-      fc.state === 'danger'
-        ? `out in ~${fmtDur(fc.msToEmpty)}`
-        : fc.state === 'limit'
-          ? 'limit reached'
-          : fc.state === 'idle'
-            ? 'idle'
-            : ''
-    const noteColor = fc.state === 'idle' ? PAL.mute : BAD
-
     // Room for the bar, in text columns, after everything else on its row.
     const tailCols =
-      1 + pct.length + 2 + resets.length + (note ? note.length + 3 : 0) + extras.reduce((n, x) => n + x.text.length + 3, 0)
+      1 + pct.length + 5 + 2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
     let keep = extras.length
     const room = (k: number) =>
       d.cols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
@@ -199,15 +215,8 @@ export function band(ui: Ui, d: BandData) {
               {' '}
               {pct}
             </Text>
+            <Text color={PAL.mute}> used</Text>
             <Text color={PAL.mute}>  {resets}</Text>
-            {note ? (
-              <Text>
-                <Text color={PAL.mute}> · </Text>
-                <Text color={noteColor} bold>
-                  {note}
-                </Text>
-              </Text>
-            ) : null}
             {extras.slice(0, keep).map(x => (
               <Text key={x.text}>
                 <Text color={PAL.mute}> · </Text>
@@ -227,8 +236,8 @@ export function band(ui: Ui, d: BandData) {
     const paceAt = markerIdx(fc.projected, width) * cellCols + half
     const hasPace = showPace && paceAt > burnedAt
     const barCols = width * cellCols
-    const burnedText = `Burned ${pct}`
-    const paceText = `Pace Burn ${projected}`
+    const burnedText = 'Burned'
+    const paceText = 'Pace Burn'
 
     type Seg = { start: number; len: number; node: RenderElement }
     const label = (at: number, text: string, mark: string): Seg => {
@@ -268,24 +277,40 @@ export function band(ui: Ui, d: BandData) {
     labelRow = <Box flexDirection="row">{parts}</Box>
   }
 
-  // ---- row 4: the warning and the quips taking turns ---------------------
+  // ---- row 4: the verdict, then the warning or a quip if the row has room ---
 
   const top = warns[0]
   const pick = rowFor(d.now, warns.length > 0)
-  const last: RenderElement =
+  const extraNode: RenderElement | null =
     pick.kind === 'alert' && top ? (
-      <Text wrap="truncate" color={WARN_COLOR[top.kind]}>
+      <Text color={WARN_COLOR[top.kind]}>
         <Text bold>⚠ {warns.map(w => w.label).join(' + ')}</Text>
         <Text>  {top.detail}</Text>
       </Text>
     ) : (
-      <Text wrap="truncate">
+      <Text>
         <Text color={PAL.violet}>✦ </Text>
         <Text color={PAL.mute} italic>
           {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
         </Text>
       </Text>
     )
+  const extraLen =
+    pick.kind === 'alert' && top
+      ? 2 + warns.map(w => w.label).join(' + ').length + 2 + top.detail.length
+      : 2 + (QUIPS[pick.kind === 'quip' ? pick.index : 0] ?? '').length
+  const fits = d.cols - verdict.length - 5 >= extraLen
+  const last: RenderElement = (
+    <Text wrap="truncate">
+      {verdict ? (
+        <Text color={verdictColor} bold>
+          {verdict}
+        </Text>
+      ) : null}
+      {verdict && fits ? <Text color={PAL.mute}>  ·  </Text> : null}
+      {fits || !verdict || pick.kind === 'alert' ? extraNode : null}
+    </Text>
+  )
 
   return (
     <Box flexDirection="column">
