@@ -18,7 +18,8 @@ import {
   warnings,
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
-import { LEVEL_NAMES, pacingLevel, spriteCells } from '../hooks/sprites'
+import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
+import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
 const MIN = 60_000
@@ -187,7 +188,7 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.2.0')
+  expect(versionLabel(VERSION)).toBe('v1.3.0')
 })
 
 test('there are twenty quips, each short, distinct and free of em dashes', () => {
@@ -255,22 +256,21 @@ test('the two markers are different colours, and neither is a track or gradient 
   expect(PACE_MARK).not.toBe(TRACK)
 })
 
-test('five mascots, each 2 rows of 3 cells, one flat colour, no empty cell, none alike', () => {
+test('five levels, each a five-bar meter with that many bars lit, in a colour of its own', () => {
   expect(LEVEL_NAMES.length).toBe(5)
-  const looks = ([1, 2, 3, 4, 5] as const).map(l => {
-    const rows = spriteCells(l)
-    expect(rows.length).toBe(2)
-    for (const row of rows) {
-      expect(row.length).toBe(3)
-      for (const cell of row) {
-        expect(cell.ch).not.toBe(' ')
-        expect(Object.keys(cell)).toEqual(['ch', 'color'])
-      }
-    }
-    expect(new Set(rows.flat().map(c => c.color)).size).toBe(1)
-    return JSON.stringify(rows)
-  })
-  expect(new Set(looks).size).toBe(5)
+  const colors = new Set<string>()
+  for (const l of [1, 2, 3, 4, 5] as const) {
+    const bars = levelMeter(l)
+    expect(bars.length).toBe(5)
+    const lit = bars.filter(b => b.color === levelColor(l))
+    expect(lit.length).toBe(l)
+    expect(bars.slice(0, l).every(b => b.color === levelColor(l))).toBe(true)
+    colors.add(levelColor(l))
+    expect(levelGlyph(l).color).toBe(levelColor(l))
+  }
+  expect(colors.size).toBe(5)
+  // the bars rise left to right
+  expect(levelMeter(5).map(b => b.ch).join('')).toBe('▂▃▅▇█')
 })
 
 test('pacing: idle sleeps, a pace that will not last is the top level, the rest follow the projection', () => {
@@ -282,4 +282,58 @@ test('pacing: idle sleeps, a pace that will not last is the top level, the rest 
   expect(pacingLevel('ok', 40)).toBe(2)
   expect(pacingLevel('ok', 70)).toBe(3)
   expect(pacingLevel('tight', 90)).toBe(4)
+})
+
+const SEC = 1000
+test('no agents, no ring; a finished wave lingers 15 seconds, full, then goes', () => {
+  expect(summarize([], 0)).toBeNull()
+  let l = recordSpawn([], 'a', 0)
+  l = recordDone(l, 'a', 10 * SEC)
+  expect(summarize(l, 12 * SEC)?.fraction).toBe(1)
+  expect(summarize(l, 12 * SEC)?.running).toBe(0)
+  expect(summarize(l, 40 * SEC)).toBeNull()
+})
+
+test('a wave counts the running and the ones that finished meanwhile', () => {
+  let l = recordSpawn([], 'a', 0)
+  l = recordSpawn(l, 'b', 1 * SEC)
+  l = recordSpawn(l, 'c', 2 * SEC)
+  l = recordDone(l, 'a', 20 * SEC)
+  const w = summarize(l, 20 * SEC)!
+  expect(w.running).toBe(2)
+  expect(w.done).toBe(1)
+  expect(w.total).toBe(3)
+})
+
+test('before any agent has finished the ETA is unknown; after, it is the average pace', () => {
+  let l = recordSpawn([], 'a', 0)
+  l = recordSpawn(l, 'b', 0)
+  expect(summarize(l, 10 * SEC)?.etaMs).toBeUndefined()
+  l = recordDone(l, 'a', 30 * SEC) // one finished in 30 s
+  const w = summarize(l, 40 * SEC)! // b has run 40 s, past the average: a small remainder
+  expect(w.etaMs).toBeGreaterThan(0)
+  expect(w.etaMs).toBeLessThanOrEqual(30 * SEC)
+  // b started 10 s before "now"; with a 30 s average it has about 20 s left
+  const l2 = recordSpawn(recordDone(recordSpawn([], 'a', 0), 'a', 30 * SEC), 'b', 30 * SEC)
+  expect(Math.round((summarize(l2, 40 * SEC)!.etaMs ?? 0) / SEC)).toBe(20)
+})
+
+test('progress never reaches 100% while something is still running', () => {
+  let l = recordSpawn([], 'a', 0)
+  l = recordDone(l, 'a', 10 * SEC)
+  l = recordSpawn(l, 'b', 10 * SEC)
+  expect(summarize(l, 20 * 60 * SEC)?.fraction).toBeLessThan(1)
+})
+
+test('an agent never seen finishing stops counting after half an hour', () => {
+  expect(summarize(recordSpawn([], 'a', 0), 31 * 60 * SEC)).toBeNull()
+})
+
+test('the ring is a valid SVG with the count and the ETA, and the pie follows the fraction', () => {
+  const svg = ringSvg(0.5, '2/4', '~3m')
+  expect(svg.startsWith('<svg')).toBe(true)
+  expect(svg).toContain('2/4')
+  expect(svg).toContain('~3m')
+  expect(pieGlyph(0)).toBe('○')
+  expect(pieGlyph(1)).toBe('●')
 })

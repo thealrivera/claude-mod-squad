@@ -9,6 +9,7 @@ import type {
 
 import type { Limit } from '../types'
 import { FIVE_HOUR, pushSample, warnings, worstRank } from './logic'
+import { recordDone, recordSpawn, summarize } from './work'
 import { band } from './view'
 
 const model = atom({ plugin: 'claudius-maximus', key: 'model' } as const, null)
@@ -16,6 +17,7 @@ const effort = atom({ plugin: 'claudius-maximus', key: 'effort' } as const, null
 const isUltracode = atom({ plugin: 'claudius-maximus', key: 'isUltracode' } as const, false)
 const isPlan = atom({ plugin: 'claudius-maximus', key: 'isPlan' } as const, false)
 const isCollapsed = atom({ plugin: 'claudius-maximus', key: 'isCollapsed' } as const, false)
+const agents = atom({ plugin: 'claudius-maximus', key: 'agents' } as const, [])
 const limits = atom({ plugin: 'claudius-maximus', key: 'limits' } as const, [])
 const samples = atom({ plugin: 'claudius-maximus', key: 'samples' } as const, [])
 const costUsd = atom({ plugin: 'claudius-maximus', key: 'costUsd' } as const, null)
@@ -29,13 +31,15 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 30_000
+const REDRAW_EVERY_MS = 3_000
+const QUIET_EVERY = 10 // redraws between ticks while no agent is running (30 s)
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
 const PLAN_KEY = 'claudius-maximus:isPlan'
 const COLLAPSE_KEY = 'claudius-maximus:isCollapsed'
 let lastStep = ''
+let beat = 0
 
 async function ingest($: EngineInterface, u: Measured) {
   const now = await $.clock.now()
@@ -75,8 +79,11 @@ export const register: Register = on => {
     const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
     await update($, isCollapsed, () => collapsed)
     await ingest($, await $.session.usage())
-    $.clock.every(REDRAW_EVERY_MS, () => {
-      update($, tick, n => n + 1).catch(() => {})
+    $.clock.every(REDRAW_EVERY_MS, async () => {
+      // The ring needs fresh seconds while agents run; otherwise redraw only every 30 s.
+      beat += 1
+      const busy = (await read($, agents)).some(a => a.t1 === undefined)
+      if (busy || beat % QUIET_EVERY === 0) await update($, tick, n => n + 1)
     })
     return next(e)
   })
@@ -100,6 +107,26 @@ export const register: Register = on => {
     }
     return yield* next(e)
   })
+
+  // Agents, workflow agents and background agents: when each starts and when it finishes.
+  on('agent.spawn', async ($, e, next) => {
+    const started = await next(e)
+    const id = 'agentId' in started ? started.agentId : undefined
+    if (id) {
+      const now = await $.clock.now()
+      await update($, agents, prev => recordSpawn(prev, id, now))
+    }
+    return started
+  }).catch(($, e, next) => next(e))
+
+  on('turn.complete', async ($, e, next) => {
+    const id = e.agentId
+    if (id !== undefined) {
+      const now = await $.clock.now()
+      await update($, agents, prev => recordDone(prev, id, now))
+    }
+    return next(e)
+  }).catch(($, e, next) => next(e))
 
   // Ultracode is a turn-level mode: the word in a prompt, or a Workflow run.
   on('prompt.submit', async ($, e, next) => {
@@ -127,6 +154,7 @@ export const register: Register = on => {
       isUltracode: await read($, isUltracode),
       isPlan: await read($, isPlan),
       isCollapsed: collapsed,
+      work: summarize(await read($, agents), await $.clock.now()),
       onToggle: async () => {
         await update($, isCollapsed, () => !collapsed)
         await $.store.set(COLLAPSE_KEY, !collapsed)
