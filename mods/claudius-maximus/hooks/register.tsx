@@ -11,15 +11,15 @@ import type { Limit } from '../types'
 import { FIVE_HOUR, pushSample, warnings, worstRank } from './logic'
 import { band } from './view'
 
-const model = atom({ plugin: 'claudeus-maximus', key: 'model' } as const, null)
-const effort = atom({ plugin: 'claudeus-maximus', key: 'effort' } as const, null)
-const isUltracode = atom({ plugin: 'claudeus-maximus', key: 'isUltracode' } as const, false)
-const isPlan = atom({ plugin: 'claudeus-maximus', key: 'isPlan' } as const, false)
-const limits = atom({ plugin: 'claudeus-maximus', key: 'limits' } as const, [])
-const samples = atom({ plugin: 'claudeus-maximus', key: 'samples' } as const, [])
-const costUsd = atom({ plugin: 'claudeus-maximus', key: 'costUsd' } as const, null)
-const ctxPercent = atom({ plugin: 'claudeus-maximus', key: 'ctxPercent' } as const, null)
-const tick = atom({ plugin: 'claudeus-maximus', key: 'tick' } as const, 0)
+const model = atom({ plugin: 'claudius-maximus', key: 'model' } as const, null)
+const effort = atom({ plugin: 'claudius-maximus', key: 'effort' } as const, null)
+const isUltracode = atom({ plugin: 'claudius-maximus', key: 'isUltracode' } as const, false)
+const isPlan = atom({ plugin: 'claudius-maximus', key: 'isPlan' } as const, false)
+const limits = atom({ plugin: 'claudius-maximus', key: 'limits' } as const, [])
+const samples = atom({ plugin: 'claudius-maximus', key: 'samples' } as const, [])
+const costUsd = atom({ plugin: 'claudius-maximus', key: 'costUsd' } as const, null)
+const ctxPercent = atom({ plugin: 'claudius-maximus', key: 'ctxPercent' } as const, null)
+const tick = atom({ plugin: 'claudius-maximus', key: 'tick' } as const, 0)
 
 type Measured = {
   context: SessionContextUsage
@@ -32,7 +32,7 @@ const REDRAW_EVERY_MS = 30_000
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
-const PLAN_KEY = 'claudeus-maximus:isPlan'
+const PLAN_KEY = 'claudius-maximus:isPlan'
 let lastStep = ''
 
 async function ingest($: EngineInterface, u: Measured) {
