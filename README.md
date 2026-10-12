@@ -70,10 +70,10 @@ Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/th
 ## For the maintainer
 
 - Each mod lives in `mods/<name>/` and is listed in `.claude-plugin/marketplace.json`.
-- Installed copies are cached by version. After any change, bump the version and push, or `plugin update` will not
-  pick it up. The version lives in two places, keep them equal:
-  `mods/<name>/.claude-plugin/plugin.json` and `mods/<name>/hooks/version.ts` (the label on the band).
-- Cut a release: `git tag -a vX.Y.Z -m "..."`, `git push origin vX.Y.Z`, then `gh release create vX.Y.Z`.
+- Do not set `version` in `plugin.json` or in the marketplace entry. Without one, Claude Code uses the commit SHA, so every
+  merge to `main` is an update for installed users. A pinned version would keep everyone on the old copy until it changes.
+- The label on the band comes from `mods/<name>/hooks/version.ts`. Change it only for a visible release, then cut it:
+  `git tag -a vX.Y.Z -m "..."`, `git push origin vX.Y.Z`, `gh release create vX.Y.Z`.
 - Check a mod before pushing:
   ```bash
   claude plugin validate mods/usage-band
