@@ -197,6 +197,8 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
+  // there is room, so the short forecast shows beside the bar
+  expect(await ui.find({ type: 'Text', text: /by reset|out ~/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Sonnet|model \?/ })).toBeDefined()
 
   await ui.press({ key: 'toggle' })
@@ -222,5 +224,28 @@ test('a collapsed band stays collapsed in the next session', async ($, on) => {
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a narrow collapsed band drops the short forecast but keeps the bar and the reset time', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on, { 'claudius-maximus:isCollapsed': true })
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
+  on('session.usage', () =>
+    ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
+  )
+  const ui = await $.ui.mount({
+    plugin: 'claudius-maximus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { ...PROPS, bodyColumns: 62 },
+  })
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await $.session.measure(reading(20, 30))
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /by reset|out ~/ })).toBeUndefined()
   await ui.unmount()
 })

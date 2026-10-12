@@ -256,7 +256,21 @@ export function band(ui: Ui, d: BandData) {
     const room = (k: number) =>
       blockCols - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
     while (keep > 0 && room(keep) < 8 * cellCols) keep--
-    const width = Math.max(8, Math.min(cellCols === 2 ? 30 : 40, Math.floor(room(keep) / cellCols)))
+    // The collapsed bar is shorter, to leave room for a short forecast beside it.
+    const cap = d.isCollapsed ? (cellCols === 2 ? 12 : 18) : cellCols === 2 ? 30 : 40
+    const width = Math.max(8, Math.min(cap, Math.floor(room(keep) / cellCols)))
+    const short =
+      fc.state === 'danger'
+        ? { text: `out ~${fmtDur(fc.msToEmpty)}`, color: BAD }
+        : fc.state === 'ok' || fc.state === 'tight'
+          ? { text: `~${fmtPct(Math.min(100, fc.projected))} by reset`, color: fc.state === 'ok' ? GOOD : WATCH }
+          : fc.state === 'limit'
+            ? { text: 'limit hit', color: BAD }
+            : fc.state === 'idle'
+              ? { text: 'idle', color: PAL.mute }
+              : undefined
+    const showShort =
+      d.isCollapsed && short !== undefined && room(keep) - width * cellCols >= short.text.length + 3
     const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
 
     barRow = (
@@ -269,6 +283,14 @@ export function band(ui: Ui, d: BandData) {
               </Text>
             ))}
             <Text color={PAL.mute}>  {resets}</Text>
+            {showShort && short ? (
+              <Text>
+                <Text color={PAL.mute}> · </Text>
+                <Text color={short.color} bold>
+                  {short.text}
+                </Text>
+              </Text>
+            ) : null}
             {extras.slice(0, keep).map(x => (
               <Text key={x.text}>
                 <Text color={PAL.mute}> · </Text>
