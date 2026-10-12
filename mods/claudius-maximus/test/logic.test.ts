@@ -18,6 +18,7 @@ import {
   warnings,
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
+import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
 import { LEVEL_NAMES, pacingLevel, spriteCells } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
@@ -282,4 +283,58 @@ test('pacing: idle sleeps, a pace that will not last is the top level, the rest 
   expect(pacingLevel('ok', 40)).toBe(2)
   expect(pacingLevel('ok', 70)).toBe(3)
   expect(pacingLevel('tight', 90)).toBe(4)
+})
+
+const SEC = 1000
+test('no agents, no ring; a finished wave lingers 15 seconds, full, then goes', () => {
+  expect(summarize([], 0)).toBeNull()
+  let l = recordSpawn([], 'a', 0)
+  l = recordDone(l, 'a', 10 * SEC)
+  expect(summarize(l, 12 * SEC)?.fraction).toBe(1)
+  expect(summarize(l, 12 * SEC)?.running).toBe(0)
+  expect(summarize(l, 40 * SEC)).toBeNull()
+})
+
+test('a wave counts the running and the ones that finished meanwhile', () => {
+  let l = recordSpawn([], 'a', 0)
+  l = recordSpawn(l, 'b', 1 * SEC)
+  l = recordSpawn(l, 'c', 2 * SEC)
+  l = recordDone(l, 'a', 20 * SEC)
+  const w = summarize(l, 20 * SEC)!
+  expect(w.running).toBe(2)
+  expect(w.done).toBe(1)
+  expect(w.total).toBe(3)
+})
+
+test('before any agent has finished the ETA is unknown; after, it is the average pace', () => {
+  let l = recordSpawn([], 'a', 0)
+  l = recordSpawn(l, 'b', 0)
+  expect(summarize(l, 10 * SEC)?.etaMs).toBeUndefined()
+  l = recordDone(l, 'a', 30 * SEC) // one finished in 30 s
+  const w = summarize(l, 40 * SEC)! // b has run 40 s, past the average: a small remainder
+  expect(w.etaMs).toBeGreaterThan(0)
+  expect(w.etaMs).toBeLessThanOrEqual(30 * SEC)
+  // b started 10 s before "now"; with a 30 s average it has about 20 s left
+  const l2 = recordSpawn(recordDone(recordSpawn([], 'a', 0), 'a', 30 * SEC), 'b', 30 * SEC)
+  expect(Math.round((summarize(l2, 40 * SEC)!.etaMs ?? 0) / SEC)).toBe(20)
+})
+
+test('progress never reaches 100% while something is still running', () => {
+  let l = recordSpawn([], 'a', 0)
+  l = recordDone(l, 'a', 10 * SEC)
+  l = recordSpawn(l, 'b', 10 * SEC)
+  expect(summarize(l, 20 * 60 * SEC)?.fraction).toBeLessThan(1)
+})
+
+test('an agent never seen finishing stops counting after half an hour', () => {
+  expect(summarize(recordSpawn([], 'a', 0), 31 * 60 * SEC)).toBeNull()
+})
+
+test('the ring is a valid SVG with the count and the ETA, and the pie follows the fraction', () => {
+  const svg = ringSvg(0.5, '2/4', '~3m')
+  expect(svg.startsWith('<svg')).toBe(true)
+  expect(svg).toContain('2/4')
+  expect(svg).toContain('~3m')
+  expect(pieGlyph(0)).toBe('○')
+  expect(pieGlyph(1)).toBe('●')
 })

@@ -19,6 +19,8 @@ import {
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
 import { LEVEL_NAMES, levelGlyph, pacingLevel, spriteCells } from './sprites'
+import { pieGlyph, ringSvg } from './work'
+import type { Work } from './work'
 import { BRAND, versionLabel } from './version'
 
 export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text' | 'Button'>
@@ -29,6 +31,7 @@ export type BandData = {
   isUltracode: boolean
   isPlan: boolean
   isCollapsed: boolean
+  work: Work | null
   onToggle: () => void | Promise<void>
   limits: Limit[]
   samples: Sample[]
@@ -84,6 +87,7 @@ const LABEL = 'Session'
 
 export function band(ui: Ui, d: BandData) {
   const { Box, Text, Button } = ui
+  const Svg = (ui as unknown as { Svg?: ElementTable<'desktop'>['Svg'] }).Svg
 
   // The block glyphs of the bar draw two text columns wide in the desktop app and one
   // in a terminal. Everything positioned against the bar is counted in text columns.
@@ -120,6 +124,30 @@ export function band(ui: Ui, d: BandData) {
       ))}
     </Box>
   )
+
+  // The ring of background work: on the desktop an SVG, in a terminal a pie and a count.
+  let ring: RenderElement | null = null
+  if (d.work) {
+    const w = d.work
+    const eta = w.running === 0 ? 'done' : w.etaMs === undefined ? 'working' : `~${fmtDur(w.etaMs)}`
+    const top = `${w.done}/${w.total}`
+    ring = Svg ? (
+      <Svg
+        source={ringSvg(w.fraction, top, eta)}
+        alt={`${w.running} agents running, ${w.done} of ${w.total} done, ${eta}`}
+        width={64}
+        height={64}
+      />
+    ) : (
+      <Text>
+        <Text color={PAL.cyan} bold>
+          {pieGlyph(w.fraction)}
+        </Text>
+        <Text color={PAL.text}> {top} agents</Text>
+        <Text color={PAL.mute}> · {eta}</Text>
+      </Text>
+    )
+  }
 
   // The forecast, in words.
   const early = (fc.msToReset ?? 0) - (fc.msToEmpty ?? 0)
@@ -159,12 +187,13 @@ export function band(ui: Ui, d: BandData) {
   }
   // Text columns the chips take, so the session block beside them gets the rest.
   const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const leftCols = Math.max(chipsWidth, 30)
+  const leftCols = chipsWidth
   // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
   // line with a one-character sprite, the chips and the toggle.
+  const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
   const blockCols = d.isCollapsed
     ? d.cols - 2 - chipsWidth - 2 - 5
-    : d.cols - 3 * cellCols - leftCols - 4 - 5
+    : d.cols - 3 * cellCols - leftCols - 4 - ringCols
   const toggle = (
     <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
   )
@@ -258,13 +287,12 @@ export function band(ui: Ui, d: BandData) {
       <Box flexDirection="row">
         <Box flexShrink={1}>
           <Text wrap="truncate">
-            <Text color={BURN_MARK} bold>
-              {MARK}
-            </Text>
-            <Text color={PAL.text}> Burned</Text>
+            {usedLine}
             {verdict ? (
               <Text>
-                <Text color={PAL.mute}>{'   ·   '}</Text>
+                <Text color={BURN_MARK} bold>
+                  {'  ▌  '}
+                </Text>
                 <Text color={verdictColor} bold>
                   {verdict}
                 </Text>
@@ -311,6 +339,9 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
+      <Box flexDirection="row" justifyContent="flex-end">
+        {toggle}
+      </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexDirection="row" gap={2} alignSelf="flex-start">
           {icon}
@@ -318,14 +349,13 @@ export function band(ui: Ui, d: BandData) {
             <Box flexDirection="row" gap={1}>
               {chips}
             </Box>
-            {usedLine}
           </Box>
         </Box>
+        {ring}
         <Box flexDirection="column" flexShrink={1}>
           {barRow}
           {labelRow}
         </Box>
-        {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexShrink={1}>{last}</Box>
