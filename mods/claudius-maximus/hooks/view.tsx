@@ -18,6 +18,7 @@ import {
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
+import { LEVEL_NAMES, pacingLevel, spriteCells } from './sprites'
 import { BRAND, versionLabel } from './version'
 
 export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text'>
@@ -102,6 +103,22 @@ export function band(ui: Ui, d: BandData) {
   const fc = forecast(d.samples, five, d.now)
   const warns = warnings(d.effort, d.isUltracode, d.limits)
 
+  // The mascot and how well the session is pacing.
+  const level = pacingLevel(fc.state, fc.projected)
+  const icon = (
+    <Box flexDirection="column">
+      {spriteCells(level).map((row, r) => (
+        <Text key={String(r)}>
+          {row.map((cell, c) => (
+            <Text key={String(c)} color={cell.color} {...(cell.bg ? { backgroundColor: cell.bg } : {})}>
+              {cell.ch}
+            </Text>
+          ))}
+        </Text>
+      ))}
+    </Box>
+  )
+
   // The forecast, in words.
   const early = (fc.msToReset ?? 0) - (fc.msToEmpty ?? 0)
   let verdict = ''
@@ -140,8 +157,8 @@ export function band(ui: Ui, d: BandData) {
   }
   // Text columns the chips take, so the session block beside them gets the rest.
   const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const leftCols = Math.max(chipsWidth, 18)
-  const blockCols = d.cols - leftCols - 2
+  const leftCols = Math.max(chipsWidth, 30)
+  const blockCols = d.cols - 8 * cellCols - leftCols - 4
 
   const brand = (
     <Box flexDirection="row" gap={1}>
@@ -190,7 +207,7 @@ export function band(ui: Ui, d: BandData) {
         <Text color={color} bold>
           {pct}
         </Text>
-        <Text color={PAL.mute}> used</Text>
+        <Text color={PAL.mute}> used  ·  {LEVEL_NAMES[level - 1]}</Text>
       </Text>
     )
     const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
@@ -271,12 +288,15 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" gap={2}>
-        <Box flexDirection="column" alignSelf="flex-start">
-          <Box flexDirection="row" gap={1}>
-            {chips}
+      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+        <Box flexDirection="row" gap={2} alignSelf="flex-start">
+          {icon}
+          <Box flexDirection="column">
+            <Box flexDirection="row" gap={1}>
+              {chips}
+            </Box>
+            {usedLine}
           </Box>
-          {usedLine}
         </Box>
         <Box flexDirection="column" flexShrink={1}>
           {barRow}

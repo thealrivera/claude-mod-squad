@@ -79,6 +79,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await ui.find({ type: 'Text', text: /Burned/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Pace Burn/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /50% *used|^50%$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Inferno/ })).toBeDefined()
     // a plan never shows cost, and context only shows once it is nearly full
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()

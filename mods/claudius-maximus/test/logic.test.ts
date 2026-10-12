@@ -18,6 +18,7 @@ import {
   warnings,
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
+import { LEVEL_NAMES, pacingLevel, spriteCells } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
 const MIN = 60_000
@@ -252,4 +253,26 @@ test('the two markers are different colours, and neither is a track or gradient 
   expect(BURN_MARK).not.toBe(PACE_MARK)
   expect(BURN_MARK).not.toBe(TRACK)
   expect(PACE_MARK).not.toBe(TRACK)
+})
+
+test('five mascots, each a rectangle of 3 rows by 8 cells, each different from the rest', () => {
+  expect(LEVEL_NAMES.length).toBe(5)
+  const looks = ([1, 2, 3, 4, 5] as const).map(l => {
+    const rows = spriteCells(l)
+    expect(rows.length).toBe(3)
+    for (const row of rows) expect(row.length).toBe(8)
+    return JSON.stringify(rows)
+  })
+  expect(new Set(looks).size).toBe(5)
+})
+
+test('pacing: idle sleeps, a pace that will not last is the top level, the rest follow the projection', () => {
+  expect(pacingLevel('idle', 0)).toBe(1)
+  expect(pacingLevel('calibrating', 0)).toBe(2)
+  expect(pacingLevel('danger', 160)).toBe(5)
+  expect(pacingLevel('limit', 100)).toBe(5)
+  expect(pacingLevel('ok', 10)).toBe(1)
+  expect(pacingLevel('ok', 40)).toBe(2)
+  expect(pacingLevel('ok', 70)).toBe(3)
+  expect(pacingLevel('tight', 90)).toBe(4)
 })
