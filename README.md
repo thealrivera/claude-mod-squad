@@ -5,7 +5,7 @@ burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ✦ claudius-modulus - “If you aren't burning 1B tokens a day, are you even alive?”            v1.4.0
+ ▌ claudius-modulus - “If you aren't burning 1B tokens a day, are you even alive?”            v1.4.0
 ```
 
 ## Install in one step
