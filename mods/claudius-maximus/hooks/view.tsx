@@ -78,7 +78,6 @@ const EFFORT_GLYPH: Record<string, string> = {
 // The label column. Every row that sits against the bar starts after it, so the
 // rows stay aligned whatever the label says.
 const LABEL = 'Session'
-const LABEL_W = 10
 
 export function band(ui: Ui, d: BandData) {
   const { Box, Text } = ui
@@ -141,7 +140,8 @@ export function band(ui: Ui, d: BandData) {
   }
   // Text columns the chips take, so the session block beside them gets the rest.
   const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const blockCols = d.cols - chipsWidth - 2
+  const leftCols = Math.max(chipsWidth, 18)
+  const blockCols = d.cols - leftCols - 2
 
   const brand = (
     <Box flexDirection="row" gap={1}>
@@ -170,6 +170,7 @@ export function band(ui: Ui, d: BandData) {
   }
 
   let barRow: RenderElement
+  let usedLine: RenderElement | null = null
   let labelRow: RenderElement | null = null
 
   if (!five) {
@@ -183,22 +184,28 @@ export function band(ui: Ui, d: BandData) {
   } else {
     const color = STATUS[fc.state]
     const pct = fmtPct(five.percentUsed)
+    usedLine = (
+      <Text>
+        <Text color={PAL.mute}>{LABEL} </Text>
+        <Text color={color} bold>
+          {pct}
+        </Text>
+        <Text color={PAL.mute}> used</Text>
+      </Text>
+    )
     const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
     // Room for the bar, in text columns, after everything else on its row.
     const tailCols =
       2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
     let keep = extras.length
     const room = (k: number) =>
-      blockCols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
+      blockCols - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
     while (keep > 0 && room(keep) < 8 * cellCols) keep--
     const width = Math.max(8, Math.min(cellCols === 2 ? 30 : 40, Math.floor(room(keep) / cellCols)))
     const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
 
     barRow = (
       <Box flexDirection="row">
-        <Box width={LABEL_W}>
-          <Text color={PAL.mute}>{LABEL}</Text>
-        </Box>
         <Box flexShrink={1}>
           <Text wrap="truncate">
             {cells.map((cell, i) => (
@@ -220,17 +227,9 @@ export function band(ui: Ui, d: BandData) {
       </Box>
     )
 
-    // Under "Session": how much is used. Then the one marker's label, at the bar's left edge.
+    // The one marker's label and the forecast, starting at the bar's left edge.
     labelRow = (
       <Box flexDirection="row">
-        <Box width={LABEL_W}>
-          <Text>
-            <Text color={color} bold>
-              {pct}
-            </Text>
-            <Text color={PAL.mute}> used</Text>
-          </Text>
-        </Box>
         <Box flexShrink={1}>
           <Text wrap="truncate">
             <Text color={BURN_MARK} bold>
@@ -273,8 +272,11 @@ export function band(ui: Ui, d: BandData) {
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" gap={2}>
-        <Box flexDirection="row" gap={1} alignSelf="flex-start">
-          {chips}
+        <Box flexDirection="column" alignSelf="flex-start">
+          <Box flexDirection="row" gap={1}>
+            {chips}
+          </Box>
+          {usedLine}
         </Box>
         <Box flexDirection="column" flexShrink={1}>
           {barRow}
