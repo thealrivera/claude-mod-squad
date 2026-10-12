@@ -177,7 +177,7 @@ export function band(ui: Ui, d: BandData) {
   if (five) {
     switch (fc.state) {
       case 'danger':
-        verdict = `You'll hit the limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before it resets.`
+        verdict = `Limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before reset.`
         verdictColor = BAD
         break
       case 'ok':

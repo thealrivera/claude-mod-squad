@@ -140,6 +140,7 @@ export const register: Register = on => {
     if (e.props.hasSurvey) return next(e)
 
     // Read so the countdowns and the second row redraw on each tick.
+    await read($, tick)
 
     const collapsed = await read($, isCollapsed)
     const ui = $.ui.resolve(e)

@@ -83,7 +83,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     // a plan never shows cost, and context only shows once it is nearly full
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /week 90%/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     expect(toasts.length).toBe(0)
@@ -108,7 +108,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     // the quip has its own line, so it shows even in a normal-width band
-    expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
@@ -173,7 +173,7 @@ test('the quip and the verdict both show, in a wide band too', async ($, on) => 
   await $.session.measure(reading(20, 30))
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /On track|hit the limit/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /On track|Limit in/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -256,3 +256,24 @@ for (const [cols, hasMessage] of [
     await ui.unmount()
   })
 }
+
+test('the block before the brand animates on its own as the clock runs', async ($, on) => {
+  const clock = mock.clock(on, { now: Date.parse('2026-10-11T20:00:00Z') })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  const seen = new Set<string>()
+  for (let i = 0; i < 6; i++) {
+    const el = await ui.find({ type: 'Text', text: /^[▁-█] $/ })
+    seen.add(JSON.stringify(el))
+    await clock.advance(300)
+    await ui.redraw()
+  }
+  expect(seen.size).toBeGreaterThan(1)
+  await ui.unmount()
+})
