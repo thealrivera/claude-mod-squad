@@ -8,6 +8,7 @@ declare module 'claude-code' {
       effort: string | null
       isUltracode: boolean
       isPlan: boolean
+      isCollapsed: boolean
       limits: Limit[]
       samples: Sample[]
       costUsd: number | null

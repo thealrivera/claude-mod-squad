@@ -71,3 +71,9 @@ export function spriteCells(level: 1 | 2 | 3 | 4 | 5): PixelCell[][] {
   }
   return rows
 }
+
+// The collapsed band's tiny sprite: one block, taller the better the pacing, in the level's colour.
+const GLYPHS = ['▂', '▃', '▄', '▆', '█']
+export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
+  return { ch: GLYPHS[level - 1]!, color: COLORS[level - 1]! }
+}

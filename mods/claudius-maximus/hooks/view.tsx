@@ -18,16 +18,18 @@ import {
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
-import { LEVEL_NAMES, pacingLevel, spriteCells } from './sprites'
+import { LEVEL_NAMES, levelGlyph, pacingLevel, spriteCells } from './sprites'
 import { BRAND, versionLabel } from './version'
 
-export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text'>
+export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text' | 'Button'>
 
 export type BandData = {
   model: string | null
   effort: string | null
   isUltracode: boolean
   isPlan: boolean
+  isCollapsed: boolean
+  onToggle: () => void | Promise<void>
   limits: Limit[]
   samples: Sample[]
   costUsd: number | null
@@ -81,7 +83,7 @@ const EFFORT_GLYPH: Record<string, string> = {
 const LABEL = 'Session'
 
 export function band(ui: Ui, d: BandData) {
-  const { Box, Text } = ui
+  const { Box, Text, Button } = ui
 
   // The block glyphs of the bar draw two text columns wide in the desktop app and one
   // in a terminal. Everything positioned against the bar is counted in text columns.
@@ -158,7 +160,14 @@ export function band(ui: Ui, d: BandData) {
   // Text columns the chips take, so the session block beside them gets the rest.
   const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
   const leftCols = Math.max(chipsWidth, 30)
-  const blockCols = d.cols - 3 * cellCols - leftCols - 4
+  // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
+  // line with a one-character sprite, the chips and the toggle.
+  const blockCols = d.isCollapsed
+    ? d.cols - 2 - chipsWidth - 2 - 5
+    : d.cols - 3 * cellCols - leftCols - 4 - 5
+  const toggle = (
+    <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
+  )
 
   const brand = (
     <Box flexDirection="row" gap={1}>
@@ -286,6 +295,20 @@ export function band(ui: Ui, d: BandData) {
       </Text>
     )
 
+  if (d.isCollapsed) {
+    const g = levelGlyph(level)
+    return (
+      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+        <Box flexDirection="row" gap={1}>
+          <Text color={g.color}>{g.ch}</Text>
+          {chips}
+        </Box>
+        <Box flexShrink={1}>{barRow}</Box>
+        {toggle}
+      </Box>
+    )
+  }
+
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
@@ -302,6 +325,7 @@ export function band(ui: Ui, d: BandData) {
           {barRow}
           {labelRow}
         </Box>
+        {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexShrink={1}>{last}</Box>

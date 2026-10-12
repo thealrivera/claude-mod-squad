@@ -15,6 +15,7 @@ const model = atom({ plugin: 'claudius-maximus', key: 'model' } as const, null)
 const effort = atom({ plugin: 'claudius-maximus', key: 'effort' } as const, null)
 const isUltracode = atom({ plugin: 'claudius-maximus', key: 'isUltracode' } as const, false)
 const isPlan = atom({ plugin: 'claudius-maximus', key: 'isPlan' } as const, false)
+const isCollapsed = atom({ plugin: 'claudius-maximus', key: 'isCollapsed' } as const, false)
 const limits = atom({ plugin: 'claudius-maximus', key: 'limits' } as const, [])
 const samples = atom({ plugin: 'claudius-maximus', key: 'samples' } as const, [])
 const costUsd = atom({ plugin: 'claudius-maximus', key: 'costUsd' } as const, null)
@@ -33,6 +34,7 @@ const REDRAW_EVERY_MS = 30_000
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
 const PLAN_KEY = 'claudius-maximus:isPlan'
+const COLLAPSE_KEY = 'claudius-maximus:isCollapsed'
 let lastStep = ''
 
 async function ingest($: EngineInterface, u: Measured) {
@@ -70,6 +72,8 @@ export const register: Register = on => {
     await update($, model, () => m)
     const plan = (await $.store.get(PLAN_KEY)) === true
     await update($, isPlan, () => plan)
+    const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
+    await update($, isCollapsed, () => collapsed)
     await ingest($, await $.session.usage())
     $.clock.every(REDRAW_EVERY_MS, () => {
       update($, tick, n => n + 1).catch(() => {})
@@ -115,12 +119,18 @@ export const register: Register = on => {
 
     // Read so the countdowns and the second row redraw on each tick.
 
+    const collapsed = await read($, isCollapsed)
     const ui = $.ui.resolve(e)
     return band(ui, {
       model: await read($, model),
       effort: await read($, effort),
       isUltracode: await read($, isUltracode),
       isPlan: await read($, isPlan),
+      isCollapsed: collapsed,
+      onToggle: async () => {
+        await update($, isCollapsed, () => !collapsed)
+        await $.store.set(COLLAPSE_KEY, !collapsed)
+      },
       limits: await read($, limits),
       samples: await read($, samples),
       costUsd: await read($, costUsd),
