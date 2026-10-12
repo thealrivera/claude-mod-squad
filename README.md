@@ -1,18 +1,18 @@
-# claudius-maximus
+# claudius-modulus
 
 A band above the Claude Code prompt that tells you how your session is going, and keeps your spirits up while you
 burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ✦ If you aren't burning 1B tokens a day, are you even alive?            claudius-maximus v1.3.1
+ ✦ claudius-modulus - “If you aren't burning 1B tokens a day, are you even alive?”            v1.3.1
 ```
 
 ## Install in one step
 
 Paste this to Claude Code:
 
-> Go to https://github.com/thealrivera/claudius-maximus and follow the install steps in the README.
+> Go to https://github.com/thealrivera/claudius-modulus and follow the install steps in the README.
 
 That's all. The steps below are what it will follow, so you can also run them yourself.
 
@@ -25,26 +25,26 @@ That's all. The steps below are what it will follow, so you can also run them yo
    `~/Library/Application Support/Claude/claude-code/<version>/`. Tell the user which one you used.
 2. **Add the marketplace.**
    ```bash
-   claude plugin marketplace add thealrivera/claudius-maximus
+   claude plugin marketplace add thealrivera/claudius-modulus
    ```
 3. **Install the mod** for the user (every session):
    ```bash
-   claude plugin install claudius-maximus@claudius-maximus --scope user
+   claude plugin install claudius-modulus@claudius-modulus --scope user
    ```
 4. **Turn on auto-update**, so every change merged to `main` reaches this user. Third-party marketplaces have it off by
    default and the repo cannot switch it on for them, so set it in the user's settings. Open `~/.claude/settings.json`
    (or `settings.json` in the folder `CLAUDE_CONFIG_DIR` points to, if it is set). Step 2 already wrote
-   `extraKnownMarketplaces.claudius-maximus` there. Add `"autoUpdate": true` to that entry and change nothing else:
+   `extraKnownMarketplaces.claudius-modulus` there. Add `"autoUpdate": true` to that entry and change nothing else:
    ```json
    "extraKnownMarketplaces": {
-     "claudius-maximus": {
-       "source": { "source": "github", "repo": "thealrivera/claudius-maximus" },
+     "claudius-modulus": {
+       "source": { "source": "github", "repo": "thealrivera/claudius-modulus" },
        "autoUpdate": true
      }
    }
    ```
    Tell the user you did this. They can undo it in `/plugin`, under Marketplaces, by choosing Disable auto-update.
-5. **Confirm.** `claude plugin list` should show `claudius-maximus@claudius-maximus` as `enabled`.
+5. **Confirm.** `claude plugin list` should show `claudius-modulus@claudius-modulus` as `enabled`.
 6. **Tell the user** to start a new session, or run `/reload-plugins` in an open one. The band appears above the prompt.
 
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
@@ -63,32 +63,32 @@ Install from a terminal, not from inside the desktop app's Code tab: `/plugin in
 - **Level meter:** a five-bar symbol under the model chip (`▂▃▅▇█`, one bar lit to all five) with a name (Napping, Warming up, Cruising, Maxxing, Inferno): how well you are pacing toward using every token.
 - **Background work ring:** while sub-agents, workflow agents or background agents run, a ring in the middle shows how many have finished and an estimated time to completion (a pie and a count in a terminal).
 - **Collapse:** a `−` button at the top right folds the band to one line (a tiny level glyph, the model and effort chips, the bar and the reset time). `+` brings it back. The choice is remembered between sessions. Collapsed, the chips shorten (`S 5.5`, `Low`), the session % leads the bar, and a short `Projected:` forecast sits beside it when there is room.
-- **Brand and version:** `claudius-maximus` and the version sit at the lower right.
+- **Brand and version:** `claudius-modulus` and the version sit at the lower right.
 
 ## Updates
 
 With auto-update on (step 4), a merge to `main` reaches users on its own: in a session, a few minutes after the first
-message, Claude Code fetches the new commit and shows `Plugin updated: claudius-maximus · Run /reload-plugins to apply`.
+message, Claude Code fetches the new commit and shows `Plugin updated: claudius-modulus · Run /reload-plugins to apply`.
 Run `/reload-plugins` to switch to it now, or it loads the next time Claude Code starts. Auto-update is off if the user
 sets `DISABLE_AUTOUPDATER=1` or `DISABLE_UPDATES=1`.
 
 To update by hand:
 
 ```bash
-claude plugin marketplace update claudius-maximus
-claude plugin update claudius-maximus@claudius-maximus
+claude plugin marketplace update claudius-modulus
+claude plugin update claudius-modulus@claudius-modulus
 ```
 
 ```bash
-claude plugin uninstall claudius-maximus@claudius-maximus
+claude plugin uninstall claudius-modulus@claudius-modulus
 ```
 
 ## Versions
 
 Installed copies are versioned by commit, so users always follow `main`.
 
-Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claudius-maximus/releases).
-`v1.0.0` is the locked first release (published as `usage-band`, renamed `claudeus-maximus` then `claudius-maximus` in v1.1.0); `main` may move ahead of it.
+Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claudius-modulus/releases).
+`v1.0.0` is the locked first release (published as `usage-band`, renamed `claudeus-maximus` then `claudius-maximus` in v1.1.0, and `claudius-modulus` after that); `main` may move ahead of it.
 
 ## For the maintainer
 
@@ -99,6 +99,6 @@ Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/th
   `git tag -a vX.Y.Z -m "..."`, `git push origin vX.Y.Z`, `gh release create vX.Y.Z`.
 - Check a mod before pushing:
   ```bash
-  claude plugin validate mods/claudius-maximus
-  claude plugin test mods/claudius-maximus
+  claude plugin validate mods/claudius-modulus
+  claude plugin test mods/claudius-modulus
   ```

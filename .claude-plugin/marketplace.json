@@ -1,12 +1,12 @@
 {
-  "name": "claudius-maximus",
+  "name": "claudius-modulus",
   "owner": {
     "name": "Al Rivera"
   },
   "plugins": [
     {
-      "name": "claudius-maximus",
-      "source": "./mods/claudius-maximus",
+      "name": "claudius-modulus",
+      "source": "./mods/claudius-modulus",
       "description": "A band above the Claude Code prompt: live model and effort, 5-hour session usage with a run-out forecast, warnings for extra, max or ultracode effort, and a rotating token-burning pep talk."
     }
   ]

@@ -123,7 +123,7 @@ export function band(ui: Ui, d: BandData) {
       ))}
       <Text color={levelColor(level)} bold>
         {' '}
-        {LEVEL_NAMES[level - 1]}
+        Level {level} - {LEVEL_NAMES[level - 1]}
       </Text>
     </Text>
   )
@@ -140,7 +140,7 @@ export function band(ui: Ui, d: BandData) {
   ) : null
   const levelLine = Svg ? (
     <Text color={levelColor(level)} bold>
-      {LEVEL_NAMES[level - 1]}
+      Level {level} - {LEVEL_NAMES[level - 1]}
     </Text>
   ) : (
     meter
@@ -216,7 +216,7 @@ export function band(ui: Ui, d: BandData) {
   const chipsWidth = d.isCollapsed
     ? model.length + 2 + (d.effort ? 1 + effortText.length + 2 : 0)
     : model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const leftCols = Math.max(chipsWidth, 5 * cellCols + 12) + (Svg ? 4 : 0)
+  const leftCols = Math.max(chipsWidth, 5 * cellCols + 24) + (Svg ? 4 : 0)
   // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
   // line with a one-character sprite, the chips and the toggle.
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
@@ -229,13 +229,6 @@ export function band(ui: Ui, d: BandData) {
 
   const brand = (
     <Box flexDirection="column" alignItems="flex-end">
-      <Text>
-        {[...BRAND].map((c, i, a) => (
-          <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
-            {c}
-          </Text>
-        ))}
-      </Text>
       <Text color={PAL.mute} dimColor>
         {versionLabel()}
       </Text>
@@ -375,8 +368,18 @@ export function band(ui: Ui, d: BandData) {
     ) : (
       <Text wrap="truncate">
         <Text color={PAL.violet}>✦ </Text>
+        {[...BRAND].map((c, i, a) => (
+          <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+            {c}
+          </Text>
+        ))}
+        <Text color={PAL.mute} dimColor>
+          {' - '}
+        </Text>
         <Text color={PAL.mute} italic>
+          {'“'}
           {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
+          {'”'}
         </Text>
       </Text>
     )

@@ -12,17 +12,17 @@ import { FIVE_HOUR, pushSample, warnings, worstRank } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
 import { band } from './view'
 
-const model = atom({ plugin: 'claudius-maximus', key: 'model' } as const, null)
-const effort = atom({ plugin: 'claudius-maximus', key: 'effort' } as const, null)
-const isUltracode = atom({ plugin: 'claudius-maximus', key: 'isUltracode' } as const, false)
-const isPlan = atom({ plugin: 'claudius-maximus', key: 'isPlan' } as const, false)
-const isCollapsed = atom({ plugin: 'claudius-maximus', key: 'isCollapsed' } as const, false)
-const agents = atom({ plugin: 'claudius-maximus', key: 'agents' } as const, [])
-const limits = atom({ plugin: 'claudius-maximus', key: 'limits' } as const, [])
-const samples = atom({ plugin: 'claudius-maximus', key: 'samples' } as const, [])
-const costUsd = atom({ plugin: 'claudius-maximus', key: 'costUsd' } as const, null)
-const ctxPercent = atom({ plugin: 'claudius-maximus', key: 'ctxPercent' } as const, null)
-const tick = atom({ plugin: 'claudius-maximus', key: 'tick' } as const, 0)
+const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
+const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
+const isUltracode = atom({ plugin: 'claudius-modulus', key: 'isUltracode' } as const, false)
+const isPlan = atom({ plugin: 'claudius-modulus', key: 'isPlan' } as const, false)
+const isCollapsed = atom({ plugin: 'claudius-modulus', key: 'isCollapsed' } as const, false)
+const agents = atom({ plugin: 'claudius-modulus', key: 'agents' } as const, [])
+const limits = atom({ plugin: 'claudius-modulus', key: 'limits' } as const, [])
+const samples = atom({ plugin: 'claudius-modulus', key: 'samples' } as const, [])
+const costUsd = atom({ plugin: 'claudius-modulus', key: 'costUsd' } as const, null)
+const ctxPercent = atom({ plugin: 'claudius-modulus', key: 'ctxPercent' } as const, null)
+const tick = atom({ plugin: 'claudius-modulus', key: 'tick' } as const, 0)
 
 type Measured = {
   context: SessionContextUsage
@@ -36,8 +36,8 @@ const QUIET_EVERY = 10 // redraws between ticks while no agent is running (30 s)
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
-const PLAN_KEY = 'claudius-maximus:isPlan'
-const COLLAPSE_KEY = 'claudius-maximus:isCollapsed'
+const PLAN_KEY = 'claudius-modulus:isPlan'
+const COLLAPSE_KEY = 'claudius-modulus:isCollapsed'
 let lastStep = ''
 let beat = 0
 

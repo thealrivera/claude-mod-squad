@@ -14,14 +14,14 @@ test('the band draws on the terminal and the desktop before any reading arrives'
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({
-      plugin: 'claudius-maximus',
+      plugin: 'claudius-modulus',
       surface,
       component: 'AbovePrompt',
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^v1\.3\.1$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /claudius-maximus/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
     await ui.unmount()
@@ -62,7 +62,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     })
 
     const ui = await $.ui.mount({
-      plugin: 'claudius-maximus',
+      plugin: 'claudius-modulus',
       surface,
       component: 'AbovePrompt',
       props: PROPS,
@@ -126,7 +126,7 @@ test('API billing has no plan limits, so it shows cost instead of a bar', async 
   on('session.measure', (_$, e) => ({ changed: e.changed }))
 
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -146,11 +146,11 @@ test('API billing has no plan limits, so it shows cost instead of a bar', async 
 
 test('a plan is remembered, so cost stays hidden before the first reading of a later session', async ($, on) => {
   mock.clock(on, { now: T0 })
-  mock.store(on, { 'claudius-maximus:isPlan': true })
+  mock.store(on, { 'claudius-modulus:isPlan': true })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
 
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -165,7 +165,7 @@ test('the quip and the verdict both show, in a wide band too', async ($, on) => 
   on('session.measure', (_$, e) => ({ changed: e.changed }))
 
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: { ...PROPS, bodyColumns: 240 },
@@ -182,7 +182,7 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   mock.store(on)
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -210,14 +210,14 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
 
 test('a collapsed band stays collapsed in the next session', async ($, on) => {
   mock.clock(on, { now: T0 })
-  mock.store(on, { 'claudius-maximus:isCollapsed': true })
+  mock.store(on, { 'claudius-modulus:isCollapsed': true })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
   on('session.usage', () =>
     ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
   )
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -234,7 +234,7 @@ for (const [cols, hasMessage] of [
 ] as const) {
   test(`a ${cols}-column collapsed band ${hasMessage ? 'keeps the projected message and shrinks the bar' : 'drops the message but keeps the bar and the reset time'}`, async ($, on) => {
     mock.clock(on, { now: T0 })
-    mock.store(on, { 'claudius-maximus:isCollapsed': true })
+    mock.store(on, { 'claudius-modulus:isCollapsed': true })
     on('session.measure', (_$, e) => ({ changed: e.changed }))
     on('session.start', (_$, e) => ({ cwd: e.cwd }))
     on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
@@ -242,7 +242,7 @@ for (const [cols, hasMessage] of [
       ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
     )
     const ui = await $.ui.mount({
-      plugin: 'claudius-maximus',
+      plugin: 'claudius-modulus',
       surface: 'terminal',
       component: 'AbovePrompt',
       props: { ...PROPS, bodyColumns: cols },
