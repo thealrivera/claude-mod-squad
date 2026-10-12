@@ -20,7 +20,7 @@ import {
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
-import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
+import { critterFrame, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
 import { iconSvg } from './icons'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
@@ -359,6 +359,7 @@ export function band(ui: Ui, d: BandData) {
 
   const top = warns[0]
   const pick = rowFor(d.now, warns.length > 0)
+  const critter = critterFrame(d.now)
   const last: RenderElement =
     pick.kind === 'alert' && top ? (
       <Text wrap="truncate" color={WARN_COLOR[top.kind]}>
@@ -367,7 +368,7 @@ export function band(ui: Ui, d: BandData) {
       </Text>
     ) : (
       <Text wrap="truncate">
-        <Text color={PAL.violet}>✦ </Text>
+        <Text color={ramp([PAL.violet, PAL.cyan], critter.t)}>{critter.ch} </Text>
         {[...BRAND].map((c, i, a) => (
           <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
             {c}

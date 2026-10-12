@@ -31,15 +31,13 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 3_000
-const QUIET_EVERY = 10 // redraws between ticks while no agent is running (30 s)
+const REDRAW_EVERY_MS = 300 // one frame of the little critter before the name; also keeps the ring's seconds fresh
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
 const PLAN_KEY = 'claudius-modulus:isPlan'
 const COLLAPSE_KEY = 'claudius-modulus:isCollapsed'
 let lastStep = ''
-let beat = 0
 
 async function ingest($: EngineInterface, u: Measured) {
   const now = await $.clock.now()
@@ -80,10 +78,7 @@ export const register: Register = on => {
     await update($, isCollapsed, () => collapsed)
     await ingest($, await $.session.usage())
     $.clock.every(REDRAW_EVERY_MS, async () => {
-      // The ring needs fresh seconds while agents run; otherwise redraw only every 30 s.
-      beat += 1
-      const busy = (await read($, agents)).some(a => a.t1 === undefined)
-      if (busy || beat % QUIET_EVERY === 0) await update($, tick, n => n + 1)
+      await update($, tick, n => n + 1)
     })
     return next(e)
   })

@@ -34,3 +34,14 @@ export function levelMeter(level: 1 | 2 | 3 | 4 | 5): PixelCell[] {
 export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
   return { ch: BARS[level - 1]!, color: COLORS[level - 1]! }
 }
+
+// The breathing block before the brand: a bar that swells and falls like a cursor that
+// has had too much coffee, sweeping from the first colour to the second and back.
+export const CRITTER = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃', '▂'] as const
+export const CRITTER_MS = 300
+
+export function critterFrame(now: number): { ch: string; t: number } {
+  const i = Math.floor(now / CRITTER_MS) % CRITTER.length
+  const half = CRITTER.length / 2
+  return { ch: CRITTER[i]!, t: i <= half ? i / half : (CRITTER.length - i) / half }
+}
