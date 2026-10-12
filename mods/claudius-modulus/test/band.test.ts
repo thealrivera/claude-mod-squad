@@ -20,7 +20,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.4\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.4\.1$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -79,7 +79,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await ui.find({ type: 'Text', text: /Session/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Pace Burn/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /50% *used|^50%$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Inferno/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Tokenzilla/ })).toBeDefined()
     // a plan never shows cost, and context only shows once it is nearly full
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()
@@ -113,7 +113,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.4\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.4\.1$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()

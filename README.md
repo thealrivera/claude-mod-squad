@@ -5,7 +5,7 @@ burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ▌ claudius-modulus - “If you aren't burning 1B tokens a day, are you even alive?”            v1.4.0
+ ▌ claudius-modulus - “If you aren't burning 1B tokens a day, are you even alive?”            v1.4.1
 ```
 
 ## Install in one step
@@ -50,7 +50,7 @@ That's all. The steps below are what it will follow, so you can also run them yo
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## What it shows (v1.4.0)
+## What it shows (v1.4.1)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
@@ -60,7 +60,7 @@ Install from a terminal, not from inside the desktop app's Code tab: `/plugin in
   or `max` effort, an ultracode or Workflow run, a full usage window) it takes every other switch, and a toast
   announces it the first time.
 - **API billing:** there are no plan limits, so it shows session cost instead of the bar.
-- **Level meter:** a five-bar symbol under the model chip (`▂▃▅▇█`, one bar lit to all five) with a name (Napping, Warming up, Cruising, Maxxing, Inferno): how well you are pacing toward using every token.
+- **Level meter:** a five-bar symbol under the model chip (`▂▃▅▇█`, one bar lit to all five) with a name (You have work to do, Warming Up, Tokenizing, Tokenmaxxing, Tokenzilla), shown as "Level N - name": how well you are pacing toward using every token.
 - **Background work ring:** while sub-agents, workflow agents or background agents run, a ring in the middle shows how many have finished and an estimated time to completion (a pie and a count in a terminal).
 - **Collapse:** a `−` button at the top right folds the band to one line (a tiny level glyph, the model and effort chips, the bar and the reset time). `+` brings it back. The choice is remembered between sessions. Collapsed, the chips shorten (`S 5.5`, `Low`), the session % leads the bar, and a short `Projected:` forecast sits beside it when there is room.
 - **Brand and version:** a blinking cursor and `claudius-modulus` lead the quote row at the lower left; the version sits at the lower right.

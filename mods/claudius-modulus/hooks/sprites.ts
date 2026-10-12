@@ -3,7 +3,7 @@ import type { ForecastState } from './logic'
 // How well the session is pacing toward using every token, in five levels. The symbol is
 // a five-bar meter, like signal strength: one bar lit is the lowest level, five the top.
 
-export const LEVEL_NAMES = ['Napping', 'Warming up', 'Cruising', 'Maxxing', 'Inferno'] as const
+export const LEVEL_NAMES = ['You have work to do', 'Warming Up', 'Tokenizing', 'Tokenmaxxing', 'Tokenzilla'] as const
 
 const COLORS = ['#7f869e', '#bd7a55', '#d97757', '#f58f5f', '#ff5a36']
 const UNLIT = '#343950'
