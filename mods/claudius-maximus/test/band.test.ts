@@ -77,7 +77,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await ui.find({ type: 'Text', text: /Burned 50%/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /resets in 1h 30m/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Burned/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Pace Burn/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Pace Burn/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /50% *used|^50%$/ })).toBeDefined()
     // a plan never shows cost, and context only shows once it is nearly full
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()
@@ -105,8 +106,9 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
-    // in a 110-column band the verdict leaves no room for a quip, so the verdict stands alone
+    // the quip has its own line, so it shows even in a normal-width band
     expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
@@ -156,7 +158,7 @@ test('a plan is remembered, so cost stays hidden before the first reading of a l
   await ui.unmount()
 })
 
-test('a wide band has room for the verdict and a quip together', async ($, on) => {
+test('the quip and the verdict both show, in a wide band too', async ($, on) => {
   mock.clock(on, { now: T0 + 30_000 })
   mock.store(on)
   on('session.measure', (_$, e) => ({ changed: e.changed }))

@@ -5,7 +5,6 @@ import {
   BURN_MARK,
   FIVE_HOUR,
   MARK,
-  PACE_MARK,
   PAL,
   SEVEN_DAY,
   barWithMarkers,
@@ -79,7 +78,7 @@ const EFFORT_GLYPH: Record<string, string> = {
 // The label column. Every row that sits against the bar starts after it, so the
 // rows stay aligned whatever the label says.
 const LABEL = 'Session'
-const LABEL_W = 9
+const LABEL_W = 10
 
 export function band(ui: Ui, d: BandData) {
   const { Box, Text } = ui
@@ -185,17 +184,16 @@ export function band(ui: Ui, d: BandData) {
   } else {
     const color = STATUS[fc.state]
     const pct = fmtPct(five.percentUsed)
-    const showPace = fc.state === 'ok' || fc.state === 'tight' || fc.state === 'danger'
     const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
     // Room for the bar, in text columns, after everything else on its row.
     const tailCols =
-      1 + pct.length + 5 + 2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
+      2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
     let keep = extras.length
     const room = (k: number) =>
       d.cols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
     while (keep > 0 && room(keep) < 8 * cellCols) keep--
     const width = Math.max(8, Math.min(cellCols === 2 ? 30 : 40, Math.floor(room(keep) / cellCols)))
-    const cells = barWithMarkers(five.percentUsed, fc.projected, width, showPace)
+    const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
 
     barRow = (
       <Box flexDirection="row">
@@ -209,11 +207,6 @@ export function band(ui: Ui, d: BandData) {
                 {cell.ch}
               </Text>
             ))}
-            <Text color={color} bold>
-              {' '}
-              {pct}
-            </Text>
-            <Text color={PAL.mute}> used</Text>
             <Text color={PAL.mute}>  {resets}</Text>
             {extras.slice(0, keep).map(x => (
               <Text key={x.text}>
@@ -228,64 +221,55 @@ export function band(ui: Ui, d: BandData) {
       </Box>
     )
 
-    // The legend starts at the left edge of the bar. Its swatches are the markers.
-    const hasPace = showPace && markerIdx(fc.projected, width) > markerIdx(five.percentUsed, width)
+    // Under "Session": how much is used. Then the one marker's label, at the bar's left edge.
     labelRow = (
       <Box flexDirection="row">
-        <Box width={LABEL_W} />
-        <Text>
-          <Text color={BURN_MARK} bold>
-            {MARK}
-          </Text>
-          <Text color={PAL.text}> Burned</Text>
-          {hasPace ? (
-            <Text>
-              <Text color={PAL.mute}>{'     '}</Text>
-              <Text color={PACE_MARK} bold>
-                {MARK}
-              </Text>
-              <Text color={PAL.text}> Pace Burn</Text>
+        <Box width={LABEL_W}>
+          <Text>
+            <Text color={color} bold>
+              {pct}
             </Text>
-          ) : null}
-        </Text>
+            <Text color={PAL.mute}> used</Text>
+          </Text>
+        </Box>
+        <Box flexShrink={1}>
+          <Text wrap="truncate">
+            <Text color={BURN_MARK} bold>
+              {MARK}
+            </Text>
+            <Text color={PAL.text}> Burned</Text>
+            {verdict ? (
+              <Text>
+                <Text color={PAL.mute}>{'   ·   '}</Text>
+                <Text color={verdictColor} bold>
+                  {verdict}
+                </Text>
+              </Text>
+            ) : null}
+          </Text>
+        </Box>
       </Box>
     )
   }
 
-  // ---- row 4: the verdict, then the warning or a quip if the row has room ---
+  // ---- row 4: the warning and the quips take turns, always on their own line ---
 
   const top = warns[0]
   const pick = rowFor(d.now, warns.length > 0)
-  const extraNode: RenderElement | null =
+  const last: RenderElement =
     pick.kind === 'alert' && top ? (
-      <Text color={WARN_COLOR[top.kind]}>
+      <Text wrap="truncate" color={WARN_COLOR[top.kind]}>
         <Text bold>⚠ {warns.map(w => w.label).join(' + ')}</Text>
         <Text>  {top.detail}</Text>
       </Text>
     ) : (
-      <Text>
+      <Text wrap="truncate">
         <Text color={PAL.violet}>✦ </Text>
         <Text color={PAL.mute} italic>
           {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
         </Text>
       </Text>
     )
-  const extraLen =
-    pick.kind === 'alert' && top
-      ? 2 + warns.map(w => w.label).join(' + ').length + 2 + top.detail.length
-      : 2 + (QUIPS[pick.kind === 'quip' ? pick.index : 0] ?? '').length
-  const fits = d.cols - verdict.length - 5 >= extraLen
-  const last: RenderElement = (
-    <Text wrap="truncate">
-      {verdict ? (
-        <Text color={verdictColor} bold>
-          {verdict}
-        </Text>
-      ) : null}
-      {verdict && fits ? <Text color={PAL.mute}>  ·  </Text> : null}
-      {fits || !verdict || pick.kind === 'alert' ? extraNode : null}
-    </Text>
-  )
 
   return (
     <Box flexDirection="column">
