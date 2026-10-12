@@ -12,6 +12,7 @@ import {
   ramp,
   warnings,
 } from '../hooks/logic'
+import { VERSION, versionLabel } from '../hooks/version'
 
 const MIN = 60_000
 const NOW = Date.parse('2026-10-11T20:00:00Z')
@@ -136,4 +137,11 @@ test('a bar shows used, then projected, then the empty track', () => {
   expect(barCells(35, 35, 10)[3]?.ch).toBe('▌')
   expect(ramp(['#000000', '#ffffff'], 0.5)).toBe('#808080')
   expect(dim('#34d399')).not.toBe('#34d399')
+})
+
+test('the version label drops a zero patch', () => {
+  expect(versionLabel('1.0.0')).toBe('v1.0')
+  expect(versionLabel('1.2.0')).toBe('v1.2')
+  expect(versionLabel('1.0.1')).toBe('v1.0.1')
+  expect(versionLabel(VERSION)).toBe('v1.0')
 })

@@ -16,6 +16,7 @@ import {
   warnings,
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
+import { versionLabel } from './version'
 
 export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text'>
 
@@ -91,6 +92,11 @@ export function band(ui: Ui, d: BandData) {
   const week = d.limits.find(l => l.kind === SEVEN_DAY)
   const fc = forecast(d.samples, five, d.now)
   const warns = warnings(d.effort, d.isUltracode, d.limits)
+
+  // The version sits at the lower right: on the warning line when there is one,
+  // else on the usage line, which then gives up the room it takes.
+  const vLabel = versionLabel()
+  const budget = d.cols - (warns.length > 0 ? 0 : vLabel.length + 2)
 
   // ---- the chips: which model, how hard it is thinking -------------------
 
@@ -168,8 +174,8 @@ export function band(ui: Ui, d: BandData) {
     const tail = (n: number) =>
       (verdict ? verdict.length + 3 : 0) + extras.slice(0, n).reduce((s, x) => s + x.text.length + 3, 0)
     let keep = extras.length
-    while (keep > 0 && d.cols - fixed - tail(keep) < 8) keep--
-    const width = Math.max(6, Math.min(24, d.cols - fixed - tail(keep)))
+    while (keep > 0 && budget - fixed - tail(keep) < 8) keep--
+    const width = Math.max(6, Math.min(24, budget - fixed - tail(keep)))
 
     const cells = barCells(five.percentUsed, fc.projected, width)
     const shade = { used: color, projected: dim(color), track: TRACK }
@@ -217,13 +223,28 @@ export function band(ui: Ui, d: BandData) {
     </Text>
   ) : null
 
-  return (
-    <Box flexDirection="column">
-      <Box flexDirection="row" gap={1}>
-        {chips}
-        {usage}
-      </Box>
-      {alert}
+  const lowerRight = (node: RenderElement) => (
+    <Box flexDirection="row" justifyContent="space-between" gap={2}>
+      <Box flexShrink={1}>{node}</Box>
+      <Text color={PAL.mute} dimColor>
+        {vLabel}
+      </Text>
     </Box>
+  )
+
+  const main = (
+    <Box flexDirection="row" gap={1}>
+      {chips}
+      {usage}
+    </Box>
+  )
+
+  return alert ? (
+    <Box flexDirection="column">
+      {main}
+      {lowerRight(alert)}
+    </Box>
+  ) : (
+    lowerRight(main)
   )
 }

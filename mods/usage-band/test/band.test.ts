@@ -20,6 +20,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.0$/ })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -92,6 +93,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()

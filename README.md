@@ -2,9 +2,9 @@
 
 Mods for Claude Code: small add-ons that change how Claude Code looks and behaves.
 
-| Mod | What it does |
-|---|---|
-| [`usage-band`](mods/usage-band) | A quiet band above the prompt: live model and effort, 5-hour session usage with a run-out forecast, and a warning when extra, max or ultracode effort is burning usage. |
+| Mod | Version | What it does |
+|---|---|---|
+| [`usage-band`](mods/usage-band) | v1.0 | A quiet band above the prompt: live model and effort, 5-hour session usage with a run-out forecast, and a warning when extra, max or ultracode effort is burning usage. |
 
 ## Install in one step
 
@@ -35,7 +35,7 @@ That's all. The steps below are what it will follow, so you can also run them yo
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## usage-band
+## usage-band (v1.0)
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
@@ -49,6 +49,7 @@ Install from a terminal, not from inside the desktop app's Code tab: `/plugin in
 - **Warning line:** extra (`xhigh`) or `max` effort, an ultracode or Workflow run, or a full usage window. A toast
   appears the first time each level shows up.
 - **API billing:** there are no plan limits, so it shows session cost instead of the bar.
+- **Version:** a small dim `v1.0` sits at the lower right of the band.
 
 ## Update, remove
 
@@ -61,11 +62,18 @@ claude plugin update usage-band@claude-mod-squad
 claude plugin uninstall usage-band@claude-mod-squad
 ```
 
+## Versions
+
+Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claude-mod-squad/releases).
+`v1.0.0` is the locked first release of `usage-band`; `main` may move ahead of it.
+
 ## For the maintainer
 
 - Each mod lives in `mods/<name>/` and is listed in `.claude-plugin/marketplace.json`.
-- Installed copies are cached by version. After any change, bump `version` in the mod's `.claude-plugin/plugin.json`
-  and push, or `plugin update` will not pick it up.
+- Installed copies are cached by version. After any change, bump the version and push, or `plugin update` will not
+  pick it up. The version lives in two places, keep them equal:
+  `mods/<name>/.claude-plugin/plugin.json` and `mods/<name>/hooks/version.ts` (the label on the band).
+- Cut a release: `git tag -a vX.Y.Z -m "..."`, `git push origin vX.Y.Z`, then `gh release create vX.Y.Z`.
 - Check a mod before pushing:
   ```bash
   claude plugin validate mods/usage-band
