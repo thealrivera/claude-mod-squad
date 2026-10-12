@@ -5,9 +5,7 @@ import {
   FIVE_HOUR,
   PAL,
   SEVEN_DAY,
-  TRACK,
   barCells,
-  dim,
   fmtDur,
   fmtPct,
   forecast,
@@ -16,7 +14,8 @@ import {
   warnings,
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
-import { versionLabel } from './version'
+import { QUIPS, rowFor } from './quips'
+import { BRAND, versionLabel } from './version'
 
 export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text'>
 
@@ -93,10 +92,8 @@ export function band(ui: Ui, d: BandData) {
   const fc = forecast(d.samples, five, d.now)
   const warns = warnings(d.effort, d.isUltracode, d.limits)
 
-  // The version sits at the lower right: on the warning line when there is one,
-  // else on the usage line, which then gives up the room it takes.
   const vLabel = versionLabel()
-  const budget = d.cols - (warns.length > 0 ? 0 : vLabel.length + 2)
+  const budget = d.cols
 
   // ---- the chips: which model, how hard it is thinking -------------------
 
@@ -175,16 +172,19 @@ export function band(ui: Ui, d: BandData) {
       (verdict ? verdict.length + 3 : 0) + extras.slice(0, n).reduce((s, x) => s + x.text.length + 3, 0)
     let keep = extras.length
     while (keep > 0 && budget - fixed - tail(keep) < 8) keep--
-    const width = Math.max(6, Math.min(24, budget - fixed - tail(keep)))
+    const width = Math.max(6, Math.min(36, budget - fixed - tail(keep)))
 
     const cells = barCells(five.percentUsed, fc.projected, width)
-    const shade = { used: color, projected: dim(color), track: TRACK }
 
     usage = (
       <Text wrap="truncate">
         <Text color={PAL.mute}>{LABEL} </Text>
         {cells.map((cell, i) => (
-          <Text key={String(i)} color={shade[cell.kind]}>
+          <Text
+            key={String(i)}
+            color={cell.color}
+            {...(cell.bg ? { backgroundColor: cell.bg } : {})}
+          >
             {cell.ch}
           </Text>
         ))}
@@ -215,36 +215,46 @@ export function band(ui: Ui, d: BandData) {
 
   // ---- a warning line, only while one applies, in plain colour -----------
 
+  // ---- row 2: the warning and the quips take turns ----------------------
+
   const top = warns[0]
-  const alert = top ? (
-    <Text color={WARN_COLOR[top.kind]} wrap="truncate">
-      <Text bold>⚠ {warns.map(w => w.label).join(' + ')}</Text>
-      <Text>  {top.detail}</Text>
-    </Text>
-  ) : null
-
-  const lowerRight = (node: RenderElement) => (
-    <Box flexDirection="row" justifyContent="space-between" gap={2}>
-      <Box flexShrink={1}>{node}</Box>
-      <Text color={PAL.mute} dimColor>
-        {vLabel}
+  const pick = rowFor(d.now, warns.length > 0)
+  const second: RenderElement =
+    pick.kind === 'alert' && top ? (
+      <Text color={WARN_COLOR[top.kind]} wrap="truncate">
+        <Text bold>⚠ {warns.map(w => w.label).join(' + ')}</Text>
+        <Text>  {top.detail}</Text>
       </Text>
-    </Box>
-  )
+    ) : (
+      <Text wrap="truncate">
+        <Text color={PAL.violet}>✦ </Text>
+        <Text color={PAL.mute} italic>
+          {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
+        </Text>
+      </Text>
+    )
 
-  const main = (
-    <Box flexDirection="row" gap={1}>
-      {chips}
-      {usage}
-    </Box>
-  )
-
-  return alert ? (
+  return (
     <Box flexDirection="column">
-      {main}
-      {lowerRight(alert)}
+      <Box flexDirection="row" gap={1}>
+        {chips}
+        {usage}
+      </Box>
+      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+        <Box flexShrink={1}>{second}</Box>
+        <Box flexDirection="row" gap={1}>
+          <Text>
+            {[...BRAND].map((c, i, a) => (
+              <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+                {c}
+              </Text>
+            ))}
+          </Text>
+          <Text color={PAL.mute} dimColor>
+            {vLabel}
+          </Text>
+        </Box>
+      </Box>
     </Box>
-  ) : (
-    lowerRight(main)
   )
 }

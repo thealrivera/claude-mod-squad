@@ -14,13 +14,16 @@ test('the band draws on the terminal and the desktop before any reading arrives'
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({
-      plugin: 'usage-band',
+      plugin: 'claudeus-maximus',
       surface,
       component: 'AbovePrompt',
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.1$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /claudeus-maximus/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
     await ui.unmount()
   }
 })
@@ -59,7 +62,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     })
 
     const ui = await $.ui.mount({
-      plugin: 'usage-band',
+      plugin: 'claudeus-maximus',
       surface,
       component: 'AbovePrompt',
       props: PROPS,
@@ -91,9 +94,19 @@ for (const surface of ['terminal', 'desktop'] as const) {
     }
     await ui.redraw()
 
+    // T0 sits on an even switch, and 30 minutes is a whole number of them
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.0$/ })).toBeDefined()
+
+    // the next switch is a quip's turn, the one after is the warning's again
+    await clock.advance(30_000)
+    await ui.redraw()
+    expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+    await clock.advance(30_000)
+    await ui.redraw()
+    expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.1$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -106,7 +119,7 @@ test('API billing has no plan limits, so it shows cost instead of a bar', async 
   on('session.measure', (_$, e) => ({ changed: e.changed }))
 
   const ui = await $.ui.mount({
-    plugin: 'usage-band',
+    plugin: 'claudeus-maximus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -126,11 +139,11 @@ test('API billing has no plan limits, so it shows cost instead of a bar', async 
 
 test('a plan is remembered, so cost stays hidden before the first reading of a later session', async ($, on) => {
   mock.clock(on, { now: T0 })
-  mock.store(on, { 'usage-band:isPlan': true })
+  mock.store(on, { 'claudeus-maximus:isPlan': true })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
 
   const ui = await $.ui.mount({
-    plugin: 'usage-band',
+    plugin: 'claudeus-maximus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,

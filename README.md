@@ -1,16 +1,18 @@
-# claude-mod-squad
+# claudeus-maximus
 
-Mods for Claude Code: small add-ons that change how Claude Code looks and behaves.
+A band above the Claude Code prompt that tells you how your session is going, and keeps your spirits up while you
+burn through it.
 
-| Mod | Version | What it does |
-|---|---|---|
-| [`usage-band`](mods/usage-band) | v1.0 | A quiet band above the prompt: live model and effort, 5-hour session usage with a run-out forecast, and a warning when extra, max or ultracode effort is burning usage. |
+```
+ ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
+ ✦ If you aren't burning 1B tokens a day, are you even alive?            claudeus-maximus v1.1
+```
 
 ## Install in one step
 
 Paste this to Claude Code:
 
-> Go to https://github.com/thealrivera/claude-mod-squad and follow the install steps in the README.
+> Go to https://github.com/thealrivera/claudeus-maximus and follow the install steps in the README.
 
 That's all. The steps below are what it will follow, so you can also run them yourself.
 
@@ -23,71 +25,67 @@ That's all. The steps below are what it will follow, so you can also run them yo
    `~/Library/Application Support/Claude/claude-code/<version>/`. Tell the user which one you used.
 2. **Add the marketplace.**
    ```bash
-   claude plugin marketplace add thealrivera/claude-mod-squad
+   claude plugin marketplace add thealrivera/claudeus-maximus
    ```
 3. **Install the mod** for the user (every session):
    ```bash
-   claude plugin install usage-band@claude-mod-squad --scope user
+   claude plugin install claudeus-maximus@claudeus-maximus --scope user
    ```
 4. **Turn on auto-update**, so every change merged to `main` reaches this user. Third-party marketplaces have it off by
    default and the repo cannot switch it on for them, so set it in the user's settings. Open `~/.claude/settings.json`
    (or `settings.json` in the folder `CLAUDE_CONFIG_DIR` points to, if it is set). Step 2 already wrote
-   `extraKnownMarketplaces.claude-mod-squad` there. Add `"autoUpdate": true` to that entry and change nothing else:
+   `extraKnownMarketplaces.claudeus-maximus` there. Add `"autoUpdate": true` to that entry and change nothing else:
    ```json
    "extraKnownMarketplaces": {
-     "claude-mod-squad": {
-       "source": { "source": "github", "repo": "thealrivera/claude-mod-squad" },
+     "claudeus-maximus": {
+       "source": { "source": "github", "repo": "thealrivera/claudeus-maximus" },
        "autoUpdate": true
      }
    }
    ```
    Tell the user you did this. They can undo it in `/plugin`, under Marketplaces, by choosing Disable auto-update.
-5. **Confirm.** `claude plugin list` should show `usage-band@claude-mod-squad` as `enabled`.
+5. **Confirm.** `claude plugin list` should show `claudeus-maximus@claudeus-maximus` as `enabled`.
 6. **Tell the user** to start a new session, or run `/reload-plugins` in an open one. The band appears above the prompt.
 
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## usage-band (v1.0)
-
-```
- ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ⚠ EXTRA EFFORT  xhigh thinking, uses your limit faster
-```
+## What it shows (v1.1)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
   pace ends the window, dark is free. The text says when it resets and whether you will run out first. Week and
   context show only when they pass 80% and 85%.
-- **Warning line:** extra (`xhigh`) or `max` effort, an ultracode or Workflow run, or a full usage window. A toast
-  appears the first time each level shows up.
+- **Second row:** twenty token-maxxing one-liners, switching every 30 seconds. When a warning applies (extra `xhigh`
+  or `max` effort, an ultracode or Workflow run, a full usage window) it takes every other switch, and a toast
+  announces it the first time.
 - **API billing:** there are no plan limits, so it shows session cost instead of the bar.
-- **Version:** a small dim `v1.0` sits at the lower right of the band.
+- **Brand and version:** `claudeus-maximus` and the version sit at the lower right.
 
 ## Updates
 
 With auto-update on (step 4), a merge to `main` reaches users on its own: in a session, a few minutes after the first
-message, Claude Code fetches the new commit and shows `Plugin updated: usage-band · Run /reload-plugins to apply`.
+message, Claude Code fetches the new commit and shows `Plugin updated: claudeus-maximus · Run /reload-plugins to apply`.
 Run `/reload-plugins` to switch to it now, or it loads the next time Claude Code starts. Auto-update is off if the user
 sets `DISABLE_AUTOUPDATER=1` or `DISABLE_UPDATES=1`.
 
 To update by hand:
 
 ```bash
-claude plugin marketplace update claude-mod-squad
-claude plugin update usage-band@claude-mod-squad
+claude plugin marketplace update claudeus-maximus
+claude plugin update claudeus-maximus@claudeus-maximus
 ```
 
 ```bash
-claude plugin uninstall usage-band@claude-mod-squad
+claude plugin uninstall claudeus-maximus@claudeus-maximus
 ```
 
 ## Versions
 
 Installed copies are versioned by commit, so users always follow `main`.
 
-Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claude-mod-squad/releases).
-`v1.0.0` is the locked first release of `usage-band`; `main` may move ahead of it.
+Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claudeus-maximus/releases).
+`v1.0.0` is the locked first release (published as `usage-band`, renamed `claudeus-maximus` in v1.1); `main` may move ahead of it.
 
 ## For the maintainer
 
@@ -98,6 +96,6 @@ Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/th
   `git tag -a vX.Y.Z -m "..."`, `git push origin vX.Y.Z`, `gh release create vX.Y.Z`.
 - Check a mod before pushing:
   ```bash
-  claude plugin validate mods/usage-band
-  claude plugin test mods/usage-band
+  claude plugin validate mods/claudeus-maximus
+  claude plugin test mods/claudeus-maximus
   ```

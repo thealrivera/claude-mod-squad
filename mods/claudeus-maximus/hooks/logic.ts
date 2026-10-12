@@ -204,31 +204,44 @@ export const PAL = {
   track: '#2b3150',
 } as const
 
-export const TRACK = '#3a3f55'
+export const TRACK = '#2b3048'
 
-const PARTIALS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉']
+// One gradient across the whole bar, so a fuller bar shows more of the ramp.
+export const BAR_GRADIENT = [PAL.mint, '#a3e635', PAL.amber, PAL.orange, PAL.red]
 
-export type BarCell = { ch: string; kind: 'used' | 'projected' | 'track' }
+const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█']
 
-// One bar, three shades: solid for what is used, dim for where the current pace
-// ends the window, a dark track for the rest. Eighth blocks smooth the used tip.
-export function barCells(used: number, projected: number, width: number): BarCell[] {
-  const units = (p: number) => (Math.min(100, Math.max(0, p)) / 100) * width
-  const u = units(used)
-  const full = Math.floor(u)
-  const part = Math.floor((u - full) * 8)
-  const end = Math.round(Math.max(u, units(projected)))
-  const cells: BarCell[] = []
-  for (let i = 0; i < width; i++) {
-    if (i < full) cells.push({ ch: '█', kind: 'used' })
-    else if (i === full && part > 0) cells.push({ ch: PARTIALS[part]!, kind: 'used' })
-    else if (i < end) cells.push({ ch: '█', kind: 'projected' })
-    else cells.push({ ch: '█', kind: 'track' })
-  }
-  return cells
-}
+export type BarCell = { ch: string; color: string; bg?: string }
 
 // The same hue, pulled toward the track: what "projected" is drawn in.
 export function dim(color: string): string {
   return lerp(color, TRACK, 0.62)
+}
+
+// A bar in eighths of a cell. Solid is used, a ghost of the same gradient runs on to
+// where the current pace ends the window, and a dark track holds the rest. A cell that
+// holds an edge is a thin block over the colour that follows it, so the tip is smooth.
+export function barCells(used: number, projected: number, width: number): BarCell[] {
+  const eighths = (p: number) => Math.round((Math.min(100, Math.max(0, p)) / 100) * width * 8)
+  const u = eighths(used)
+  const pr = Math.max(u, eighths(projected))
+  const cells: BarCell[] = []
+  for (let i = 0; i < width; i++) {
+    const hue = ramp(BAR_GRADIENT, (i + 0.5) / width)
+    const ghost = dim(hue)
+    const usedFill = Math.min(8, Math.max(0, u - i * 8))
+    const projFill = Math.min(8, Math.max(0, pr - i * 8))
+    if (usedFill === 8) {
+      cells.push({ ch: '█', color: hue })
+    } else if (usedFill > 0) {
+      cells.push({ ch: EIGHTHS[usedFill]!, color: hue, bg: projFill - usedFill >= 4 ? ghost : TRACK })
+    } else if (projFill === 8) {
+      cells.push({ ch: '█', color: ghost })
+    } else if (projFill > 0) {
+      cells.push({ ch: EIGHTHS[projFill]!, color: ghost, bg: TRACK })
+    } else {
+      cells.push({ ch: '█', color: TRACK })
+    }
+  }
+  return cells
 }

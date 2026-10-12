@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 import type { Limit, Sample } from '../types'
 import {
+  TRACK,
   barCells,
   dim,
   fmtDur,
@@ -12,6 +13,7 @@ import {
   ramp,
   warnings,
 } from '../hooks/logic'
+import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { VERSION, versionLabel } from '../hooks/version'
 
 const MIN = 60_000
@@ -127,14 +129,51 @@ test('model ids read as names', () => {
   expect(prettyModel(null)).toBe('model ?')
 })
 
-test('a bar shows used, then projected, then the empty track', () => {
+const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]
+
+test('an empty bar is all dark track, a full bar is all solid', () => {
+  expect(barCells(0, 0, 8).every(c => c.ch === '█' && c.color === TRACK && c.bg === undefined)).toBe(true)
+  expect(barCells(100, 100, 8).every(c => c.ch === '█' && c.color !== TRACK)).toBe(true)
+})
+
+test('one gradient runs across the whole bar, green at the start and red at the end', () => {
+  const full = barCells(100, 100, 24)
+  const [r0, g0] = rgb(full[0]!.color)
+  const [r1, g1] = rgb(full[23]!.color)
+  expect(g0).toBeGreaterThan(r0)
+  expect(r1).toBeGreaterThan(g1)
+  // a partly full bar shows only the first part of that same ramp
+  expect(barCells(50, 50, 24)[11]?.color).toBe(full[11]?.color)
+})
+
+test('the used part, its ghost and the track come in that order', () => {
   const cells = barCells(30, 70, 10)
-  expect(cells.map(c => c.kind[0]).join('')).toBe('uuuppppttt')
-  expect(barCells(0, 0, 8).every(c => c.kind === 'track')).toBe(true)
-  expect(barCells(100, 100, 8).every(c => c.kind === 'used')).toBe(true)
-  expect(barCells(25, 25, 8).filter(c => c.kind === 'used').length).toBe(2)
-  // the used tip gets a thin eighth block rather than rounding up
-  expect(barCells(35, 35, 10)[3]?.ch).toBe('▌')
+  const solid = cells.filter(c => c.ch === '█' && c.color !== TRACK && c.bg === undefined)
+  expect(solid.length).toBeGreaterThanOrEqual(7)
+  expect(cells[0]?.color).not.toBe(dim(cells[0]!.color))
+  // the first three cells are full-strength, the next four are the dimmed ghost of the ramp
+  expect(cells[2]?.color).toBe(barCells(100, 100, 10)[2]?.color)
+  expect(cells[3]?.color).toBe(dim(barCells(100, 100, 10)[3]!.color))
+  expect(cells[6]?.color).toBe(dim(barCells(100, 100, 10)[6]!.color))
+  expect(cells[7]?.color).toBe(TRACK)
+})
+
+test('the tip is smooth: an edge inside a cell is a thin block over the colour after it', () => {
+  // 35% of 10 cells is 3.5 cells: a half block in the fourth cell
+  const tip = barCells(35, 35, 10)[3]!
+  expect(tip.ch).toBe('▌')
+  expect(tip.bg).toBe(TRACK)
+  // with a ghost running on, the half block sits over the ghost instead
+  const withGhost = barCells(35, 90, 10)[3]!
+  expect(withGhost.ch).toBe('▌')
+  expect(withGhost.bg).not.toBe(TRACK)
+  // eighths: 3.125 cells puts a one-eighth sliver in the fourth cell
+  expect(barCells(31.25, 31.25, 10)[3]?.ch).toBe('▏')
+})
+
+test('a bar of more cells has finer steps', () => {
+  const steps = (w: number) => new Set(barCells(100, 100, w).map(c => c.color)).size
+  expect(steps(36)).toBeGreaterThan(steps(12))
   expect(ramp(['#000000', '#ffffff'], 0.5)).toBe('#808080')
   expect(dim('#34d399')).not.toBe('#34d399')
 })
@@ -143,5 +182,40 @@ test('the version label drops a zero patch', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0')
   expect(versionLabel('1.2.0')).toBe('v1.2')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.0')
+  expect(versionLabel(VERSION)).toBe('v1.1')
+})
+
+test('there are twenty quips, each short, distinct and free of em dashes', () => {
+  expect(QUIPS.length).toBe(20)
+  expect(new Set(QUIPS).size).toBe(20)
+  for (const q of QUIPS) {
+    expect(q.length).toBeLessThanOrEqual(70)
+    expect(q.includes('\u2014')).toBe(false)
+  }
+})
+
+test('with no warning the second row steps through every quip, then starts over', () => {
+  const t0 = 1000 * ROTATE_MS
+  const seen = Array.from({ length: 21 }, (_, i) => rowFor(t0 + i * ROTATE_MS, false))
+  expect(seen.every(r => r.kind === 'quip')).toBe(true)
+  const idx = seen.map(r => (r.kind === 'quip' ? r.index : -1))
+  expect(new Set(idx.slice(0, 20)).size).toBe(20)
+  expect(idx[20]).toBe(idx[0])
+  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
+})
+
+test('a row holds for the whole switch interval', () => {
+  const t0 = 1000 * ROTATE_MS
+  expect(rowFor(t0, false)).toEqual(rowFor(t0 + ROTATE_MS - 1, false))
+  expect(rowFor(t0, false)).not.toEqual(rowFor(t0 + ROTATE_MS, false))
+})
+
+test('with a warning it takes every other switch and the quips carry on in order between', () => {
+  const t0 = 1000 * ROTATE_MS
+  const kinds = Array.from({ length: 6 }, (_, i) => rowFor(t0 + i * ROTATE_MS, true).kind)
+  expect(kinds).toEqual(['alert', 'quip', 'alert', 'quip', 'alert', 'quip'])
+  const quips = [1, 3, 5, 7].map(i => rowFor(t0 + i * ROTATE_MS, true))
+  const idx = quips.map(r => (r.kind === 'quip' ? r.index : -1))
+  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
+  expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 20)
 })

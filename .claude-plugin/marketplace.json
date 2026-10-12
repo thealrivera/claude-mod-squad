@@ -1,11 +1,13 @@
 {
-  "name": "claude-mod-squad",
-  "owner": { "name": "Al Rivera" },
+  "name": "claudeus-maximus",
+  "owner": {
+    "name": "Al Rivera"
+  },
   "plugins": [
     {
-      "name": "usage-band",
-      "source": "./mods/usage-band",
-      "description": "A quiet band above the prompt: live model and effort, 5-hour session usage with a run-out forecast, and a warning when extra, max or ultracode effort is burning usage."
+      "name": "claudeus-maximus",
+      "source": "./mods/claudeus-maximus",
+      "description": "A band above the Claude Code prompt: live model and effort, 5-hour session usage with a run-out forecast, warnings for extra, max or ultracode effort, and a rotating token-burning pep talk."
     }
   ]
 }

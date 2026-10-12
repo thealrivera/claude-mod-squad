@@ -11,15 +11,15 @@ import type { Limit } from '../types'
 import { FIVE_HOUR, pushSample, warnings, worstRank } from './logic'
 import { band } from './view'
 
-const model = atom({ plugin: 'usage-band', key: 'model' } as const, null)
-const effort = atom({ plugin: 'usage-band', key: 'effort' } as const, null)
-const isUltracode = atom({ plugin: 'usage-band', key: 'isUltracode' } as const, false)
-const isPlan = atom({ plugin: 'usage-band', key: 'isPlan' } as const, false)
-const limits = atom({ plugin: 'usage-band', key: 'limits' } as const, [])
-const samples = atom({ plugin: 'usage-band', key: 'samples' } as const, [])
-const costUsd = atom({ plugin: 'usage-band', key: 'costUsd' } as const, null)
-const ctxPercent = atom({ plugin: 'usage-band', key: 'ctxPercent' } as const, null)
-const tick = atom({ plugin: 'usage-band', key: 'tick' } as const, 0)
+const model = atom({ plugin: 'claudeus-maximus', key: 'model' } as const, null)
+const effort = atom({ plugin: 'claudeus-maximus', key: 'effort' } as const, null)
+const isUltracode = atom({ plugin: 'claudeus-maximus', key: 'isUltracode' } as const, false)
+const isPlan = atom({ plugin: 'claudeus-maximus', key: 'isPlan' } as const, false)
+const limits = atom({ plugin: 'claudeus-maximus', key: 'limits' } as const, [])
+const samples = atom({ plugin: 'claudeus-maximus', key: 'samples' } as const, [])
+const costUsd = atom({ plugin: 'claudeus-maximus', key: 'costUsd' } as const, null)
+const ctxPercent = atom({ plugin: 'claudeus-maximus', key: 'ctxPercent' } as const, null)
+const tick = atom({ plugin: 'claudeus-maximus', key: 'tick' } as const, 0)
 
 type Measured = {
   context: SessionContextUsage
@@ -28,11 +28,11 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 60_000
+const REDRAW_EVERY_MS = 30_000
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
-const PLAN_KEY = 'usage-band:isPlan'
+const PLAN_KEY = 'claudeus-maximus:isPlan'
 let lastStep = ''
 
 async function ingest($: EngineInterface, u: Measured) {
@@ -113,7 +113,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
 
-    // Read so the countdowns redraw when the minute timer ticks.
+    // Read so the countdowns and the second row redraw on each tick.
     await read($, tick)
 
     const ui = $.ui.resolve(e)

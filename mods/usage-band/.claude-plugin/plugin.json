@@ -1,5 +1,0 @@
-{
-  "name": "usage-band",
-  "description": "Always-on band above the prompt: 5h/7d usage with run-out forecast, live model, and a warning when extra, max or ultracode effort is burning usage.",
-  "types": "./types/index.d.ts"
-}
