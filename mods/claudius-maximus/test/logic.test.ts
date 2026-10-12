@@ -4,6 +4,9 @@ import type { Limit, Sample } from '../types'
 import {
   TRACK,
   barCells,
+  barWithMarkers,
+  BURN_MARK,
+  PACE_MARK,
   dim,
   fmtDur,
   fmtPct,
@@ -227,4 +230,28 @@ test('the track shimmers: its colour drifts with the phase, the used part does n
   expect(a.map(c => c.color)).not.toEqual(b.map(c => c.color))
   const track = a.filter(c => c.ch === '█' && /^#[2-4]/.test(c.color))
   expect(track.length).toBeGreaterThan(20)
+})
+
+test('two markers: Burned where usage stands, Pace Burn where the pace ends the window', () => {
+  const cells = barWithMarkers(30, 70, 40, 0, true)
+  const lines = cells.map((c, i) => (c.ch === '┃' ? i : -1)).filter(i => i >= 0)
+  expect(lines).toEqual([12, 28])
+  expect(cells[12]?.color).toBe(BURN_MARK)
+  expect(cells[28]?.color).toBe(PACE_MARK)
+})
+
+test('no pace, no second marker; a pace on top of usage shows only one', () => {
+  expect(barWithMarkers(30, 70, 40, 0, false).filter(c => c.ch === '┃').length).toBe(1)
+  expect(barWithMarkers(30, 30, 40, 0, true).filter(c => c.ch === '┃').length).toBe(1)
+})
+
+test('POTENTIAL is written across the gray section when it fits, and not when it does not', () => {
+  const word = (cells: ReturnType<typeof barWithMarkers>) => cells.map(c => c.ch).join('')
+  expect(word(barWithMarkers(20, 50, 40, 0, true))).toContain('POTENTIAL')
+  expect(word(barWithMarkers(20, 90, 40, 0, true))).not.toContain('POTENTIAL')
+  expect(word(barWithMarkers(20, 100, 40, 0, true))).not.toContain('POTENTIAL')
+  // the lettering sits only after the pace marker
+  const cells = barWithMarkers(20, 50, 40, 0, true)
+  const pace = cells.findIndex(c => c.color === PACE_MARK)
+  expect(word(cells).indexOf('POTENTIAL')).toBeGreaterThan(pace)
 })

@@ -253,3 +253,45 @@ export function barCells(used: number, projected: number, width: number, phase =
   }
   return cells
 }
+
+export const BURN_MARK = '#ffffff'
+export const PACE_MARK = '#ffd166'
+export const POTENTIAL = 'POTENTIAL'
+
+// The bar with two vertical markers: "Burned" where usage stands now and, when a pace
+// is known, "Pace Burn" where that pace ends the window. A marker is a line glyph that
+// takes the place of the cell holding the edge. If the gray section after the pace
+// marker has room, a tiny POTENTIAL is written across it.
+export function barWithMarkers(
+  used: number,
+  projected: number,
+  width: number,
+  phase: number,
+  showPace: boolean,
+): BarCell[] {
+  const cells = barCells(used, showPace ? projected : used, width, phase)
+  const idx = (p: number) =>
+    Math.min(width - 1, Math.max(0, Math.floor((Math.min(100, Math.max(0, p)) / 100) * width)))
+  const mark = (i: number, color: string) => {
+    const base = cells[i]!
+    cells[i] = { ch: '┃', color, bg: base.ch === '█' ? base.color : (base.bg ?? TRACK) }
+  }
+
+  const burned = idx(used)
+  const pace = idx(projected)
+  const hasPace = showPace && pace > burned
+
+  if (hasPace) {
+    const room = width - 1 - pace
+    if (room >= POTENTIAL.length + 3) {
+      const start = pace + 1 + Math.floor((room - POTENTIAL.length) / 2)
+      for (let k = 0; k < POTENTIAL.length; k++) {
+        const base = cells[start + k]!
+        cells[start + k] = { ch: POTENTIAL[k]!, color: lerp(base.color, '#ffffff', 0.4), bg: base.color }
+      }
+    }
+    mark(pace, PACE_MARK)
+  }
+  mark(burned, BURN_MARK)
+  return cells
+}

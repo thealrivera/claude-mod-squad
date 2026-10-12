@@ -5,7 +5,9 @@ import {
   FIVE_HOUR,
   PAL,
   SEVEN_DAY,
-  barCells,
+  BURN_MARK,
+  PACE_MARK,
+  barWithMarkers,
   fmtDur,
   fmtPct,
   forecast,
@@ -126,8 +128,7 @@ export function band(ui: Ui, d: BandData) {
   }
 
   let usage: RenderElement
-  let verdict = ''
-  let verdictColor: string = PAL.mute
+  let legend: RenderElement | null = null
   if (!five) {
     // No plan limits: say so plainly, and show cost only for API billing.
     const showCost = !d.isPlan && d.costUsd !== null && d.costUsd > 0
@@ -141,29 +142,36 @@ export function band(ui: Ui, d: BandData) {
     const pct = fmtPct(five.percentUsed)
     const resets = fc.msToReset === undefined ? '' : `resets ${fmtDur(fc.msToReset)}`
     const projected = fmtPct(Math.min(100, fc.projected))
-    switch (fc.state) {
-      case 'ok':
-        verdict = `▸ ${projected} by reset`
-        verdictColor = GOOD
-        break
-      case 'tight':
-        verdict = `▸ ${projected} by reset`
-        verdictColor = WATCH
-        break
-      case 'danger':
-        verdict = `▸ out in ~${fmtDur(fc.msToEmpty)}`
-        verdictColor = BAD
-        break
-      case 'limit':
-        verdict = '▸ limit reached'
-        verdictColor = BAD
-        break
-      case 'idle':
-        verdict = '▸ idle'
-        break
-      default:
-        break
-    }
+    const showPace = fc.state === 'ok' || fc.state === 'tight' || fc.state === 'danger'
+    const note =
+      fc.state === 'danger' ? (
+        <Text color={BAD} bold>
+          {`  ·  out in ~${fmtDur(fc.msToEmpty)}`}
+        </Text>
+      ) : fc.state === 'limit' ? (
+        <Text color={BAD} bold>
+          {'  ·  limit reached'}
+        </Text>
+      ) : fc.state === 'idle' ? (
+        <Text color={PAL.mute}>{'  ·  idle'}</Text>
+      ) : null
+    legend = (
+      <Text>
+        <Text color={BURN_MARK} bold>
+          ┃
+        </Text>
+        <Text color={PAL.text}> Burned {pct}</Text>
+        {showPace ? (
+          <Text>
+            <Text color={PACE_MARK} bold>
+              {'   ┃'}
+            </Text>
+            <Text color={PAL.text}> Pace Burn {projected}</Text>
+          </Text>
+        ) : null}
+        {note}
+      </Text>
+    )
 
     // Rare extras come before the bar shrinks below a readable size.
     const fixed = chipsWidth + 2 + LABEL.length + 1 + 1 + pct.length + 2 + resets.length
@@ -171,7 +179,7 @@ export function band(ui: Ui, d: BandData) {
     let keep = extras.length
     while (keep > 0 && budget - fixed - tail(keep) < 10) keep--
     const width = Math.max(8, Math.min(36, budget - fixed - tail(keep)))
-    const cells = barCells(five.percentUsed, fc.projected, width, d.phase)
+    const cells = barWithMarkers(five.percentUsed, fc.projected, width, d.phase, showPace)
 
     usage = (
       <Text wrap="truncate">
@@ -222,11 +230,9 @@ export function band(ui: Ui, d: BandData) {
     )
   const second: RenderElement = (
     <Text wrap="truncate">
-      {verdict ? (
+      {legend ? (
         <Text>
-          <Text color={verdictColor} bold>
-            {verdict}
-          </Text>
+          {legend}
           <Text color={PAL.mute}>  ·  </Text>
         </Text>
       ) : null}
