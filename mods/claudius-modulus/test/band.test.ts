@@ -14,15 +14,15 @@ test('the band draws on the terminal and the desktop before any reading arrives'
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({
-      plugin: 'claudius-maximus',
+      plugin: 'claudius-modulus',
       surface,
       component: 'AbovePrompt',
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.3\.1$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /claudius-maximus/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.4\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
     await ui.unmount()
   }
@@ -62,7 +62,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     })
 
     const ui = await $.ui.mount({
-      plugin: 'claudius-maximus',
+      plugin: 'claudius-modulus',
       surface,
       component: 'AbovePrompt',
       props: PROPS,
@@ -83,7 +83,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     // a plan never shows cost, and context only shows once it is nearly full
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /week 90%/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     expect(toasts.length).toBe(0)
@@ -108,12 +108,12 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     // the quip has its own line, so it shows even in a normal-width band
-    expect(await ui.find({ type: 'Text', text: /hit the limit in ~/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.3\.1$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.4\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -126,7 +126,7 @@ test('API billing has no plan limits, so it shows cost instead of a bar', async 
   on('session.measure', (_$, e) => ({ changed: e.changed }))
 
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -146,11 +146,11 @@ test('API billing has no plan limits, so it shows cost instead of a bar', async 
 
 test('a plan is remembered, so cost stays hidden before the first reading of a later session', async ($, on) => {
   mock.clock(on, { now: T0 })
-  mock.store(on, { 'claudius-maximus:isPlan': true })
+  mock.store(on, { 'claudius-modulus:isPlan': true })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
 
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
@@ -165,15 +165,15 @@ test('the quip and the verdict both show, in a wide band too', async ($, on) => 
   on('session.measure', (_$, e) => ({ changed: e.changed }))
 
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: { ...PROPS, bodyColumns: 240 },
   })
   await $.session.measure(reading(20, 30))
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /On track|hit the limit/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Projecting you hit|Limit in/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -182,19 +182,19 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   mock.store(on)
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
   })
   await $.session.measure(reading(20, 30))
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeDefined()
 
   await ui.press({ key: 'toggle' })
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
   // there is room, so the short forecast shows beside the bar, and the session % leads the bar
@@ -204,27 +204,27 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
 
   await ui.press({ key: 'toggle' })
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
   await ui.unmount()
 })
 
 test('a collapsed band stays collapsed in the next session', async ($, on) => {
   mock.clock(on, { now: T0 })
-  mock.store(on, { 'claudius-maximus:isCollapsed': true })
+  mock.store(on, { 'claudius-modulus:isCollapsed': true })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
   on('session.usage', () =>
     ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
   )
   const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
+    plugin: 'claudius-modulus',
     surface: 'terminal',
     component: 'AbovePrompt',
     props: PROPS,
   })
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -234,7 +234,7 @@ for (const [cols, hasMessage] of [
 ] as const) {
   test(`a ${cols}-column collapsed band ${hasMessage ? 'keeps the projected message and shrinks the bar' : 'drops the message but keeps the bar and the reset time'}`, async ($, on) => {
     mock.clock(on, { now: T0 })
-    mock.store(on, { 'claudius-maximus:isCollapsed': true })
+    mock.store(on, { 'claudius-modulus:isCollapsed': true })
     on('session.measure', (_$, e) => ({ changed: e.changed }))
     on('session.start', (_$, e) => ({ cwd: e.cwd }))
     on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
@@ -242,7 +242,7 @@ for (const [cols, hasMessage] of [
       ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
     )
     const ui = await $.ui.mount({
-      plugin: 'claudius-maximus',
+      plugin: 'claudius-modulus',
       surface: 'terminal',
       component: 'AbovePrompt',
       props: { ...PROPS, bodyColumns: cols },
@@ -256,3 +256,24 @@ for (const [cols, hasMessage] of [
     await ui.unmount()
   })
 }
+
+test('the cursor before the brand blinks on its own as the clock runs', async ($, on) => {
+  const clock = mock.clock(on, { now: Date.parse('2026-10-11T20:00:00Z') })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  const seen = new Set<string>()
+  for (let i = 0; i < 6; i++) {
+    const el = await ui.find({ type: 'Text', text: /^▌ $/ })
+    seen.add(JSON.stringify(el))
+    await clock.advance(200)
+    await ui.redraw()
+  }
+  expect(seen.size).toBeGreaterThan(1)
+  await ui.unmount()
+})

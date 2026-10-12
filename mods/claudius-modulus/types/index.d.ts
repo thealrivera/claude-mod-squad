@@ -4,7 +4,7 @@ export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 
 declare module 'claude-code' {
   interface PluginState {
-    'claudius-maximus': {
+    'claudius-modulus': {
       model: string | null
       effort: string | null
       isUltracode: boolean

@@ -20,7 +20,8 @@ import {
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
-import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
+import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
+import { iconSvg } from './icons'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
 import { BRAND, versionLabel } from './version'
@@ -122,9 +123,27 @@ export function band(ui: Ui, d: BandData) {
       ))}
       <Text color={levelColor(level)} bold>
         {' '}
-        {LEVEL_NAMES[level - 1]}
+        Level {level} - {LEVEL_NAMES[level - 1]}
       </Text>
     </Text>
+  )
+
+  // On the desktop: a square pixel icon for the level beside the chips, and the name under
+  // them. In a terminal there is no square image, so the five-bar meter and the name stay.
+  const sprite = Svg ? (
+    <Svg
+      source={iconSvg(level, levelColor(level))}
+      alt={`Pacing level ${level} of 5: ${LEVEL_NAMES[level - 1]}`}
+      width={30}
+      height={30}
+    />
+  ) : null
+  const levelLine = Svg ? (
+    <Text color={levelColor(level)} bold>
+      Level {level} - {LEVEL_NAMES[level - 1]}
+    </Text>
+  ) : (
+    meter
   )
 
   // The ring of background work: on the desktop an SVG, in a terminal a pie and a count.
@@ -158,12 +177,12 @@ export function band(ui: Ui, d: BandData) {
   if (five) {
     switch (fc.state) {
       case 'danger':
-        verdict = `You'll hit the limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before it resets.`
+        verdict = `Limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before reset.`
         verdictColor = BAD
         break
       case 'ok':
       case 'tight':
-        verdict = `On track to end the session near ${fmtPct(Math.min(100, fc.projected))}.`
+        verdict = `Projecting you hit ${fmtPct(Math.min(100, fc.projected))}.`
         verdictColor = fc.state === 'ok' ? GOOD : WATCH
         break
       case 'limit':
@@ -197,7 +216,7 @@ export function band(ui: Ui, d: BandData) {
   const chipsWidth = d.isCollapsed
     ? model.length + 2 + (d.effort ? 1 + effortText.length + 2 : 0)
     : model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const leftCols = Math.max(chipsWidth, 5 * cellCols + 12)
+  const leftCols = Math.max(chipsWidth, 5 * cellCols + 24) + (Svg ? 4 : 0)
   // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
   // line with a one-character sprite, the chips and the toggle.
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
@@ -210,13 +229,6 @@ export function band(ui: Ui, d: BandData) {
 
   const brand = (
     <Box flexDirection="column" alignItems="flex-end">
-      <Text>
-        {[...BRAND].map((c, i, a) => (
-          <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
-            {c}
-          </Text>
-        ))}
-      </Text>
       <Text color={PAL.mute} dimColor>
         {versionLabel()}
       </Text>
@@ -347,6 +359,7 @@ export function band(ui: Ui, d: BandData) {
 
   const top = warns[0]
   const pick = rowFor(d.now, warns.length > 0)
+  const glow = cursorGlow(d.now)
   const last: RenderElement =
     pick.kind === 'alert' && top ? (
       <Text wrap="truncate" color={WARN_COLOR[top.kind]}>
@@ -355,9 +368,19 @@ export function band(ui: Ui, d: BandData) {
       </Text>
     ) : (
       <Text wrap="truncate">
-        <Text color={PAL.violet}>✦ </Text>
+        <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR} </Text>
+        {[...BRAND].map((c, i, a) => (
+          <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+            {c}
+          </Text>
+        ))}
+        <Text color={PAL.mute} dimColor>
+          {' - '}
+        </Text>
         <Text color={PAL.mute} italic>
+          {'“'}
           {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
+          {'”'}
         </Text>
       </Text>
     )
@@ -382,11 +405,14 @@ export function band(ui: Ui, d: BandData) {
         {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexDirection="column" alignSelf="flex-start">
-          <Box flexDirection="row" gap={1}>
-            {chips}
+        <Box flexDirection="row" gap={2} alignSelf="flex-start" alignItems="center">
+          {sprite}
+          <Box flexDirection="column">
+            <Box flexDirection="row" gap={1}>
+              {chips}
+            </Box>
+            {levelLine}
           </Box>
-          {meter}
         </Box>
         {ring}
         <Box flexDirection="column" flexShrink={1}>

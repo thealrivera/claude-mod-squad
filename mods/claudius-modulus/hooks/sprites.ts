@@ -34,3 +34,15 @@ export function levelMeter(level: 1 | 2 | 3 | 4 | 5): PixelCell[] {
 export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
   return { ch: BARS[level - 1]!, color: COLORS[level - 1]! }
 }
+
+// The blinking cursor before the brand: a thin block that fades in and out on a cosine,
+// so it eases like a calm blink rather than snapping on and off.
+export const CURSOR = '▌'
+export const CURSOR_MS = 200
+const CURSOR_FRAMES = 6
+
+// 1 = fully lit, 0 = faded into the background.
+export function cursorGlow(now: number): number {
+  const i = Math.floor(now / CURSOR_MS) % CURSOR_FRAMES
+  return (1 + Math.cos((2 * Math.PI * i) / CURSOR_FRAMES)) / 2
+}

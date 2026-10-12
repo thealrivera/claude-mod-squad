@@ -12,17 +12,17 @@ import { FIVE_HOUR, pushSample, warnings, worstRank } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
 import { band } from './view'
 
-const model = atom({ plugin: 'claudius-maximus', key: 'model' } as const, null)
-const effort = atom({ plugin: 'claudius-maximus', key: 'effort' } as const, null)
-const isUltracode = atom({ plugin: 'claudius-maximus', key: 'isUltracode' } as const, false)
-const isPlan = atom({ plugin: 'claudius-maximus', key: 'isPlan' } as const, false)
-const isCollapsed = atom({ plugin: 'claudius-maximus', key: 'isCollapsed' } as const, false)
-const agents = atom({ plugin: 'claudius-maximus', key: 'agents' } as const, [])
-const limits = atom({ plugin: 'claudius-maximus', key: 'limits' } as const, [])
-const samples = atom({ plugin: 'claudius-maximus', key: 'samples' } as const, [])
-const costUsd = atom({ plugin: 'claudius-maximus', key: 'costUsd' } as const, null)
-const ctxPercent = atom({ plugin: 'claudius-maximus', key: 'ctxPercent' } as const, null)
-const tick = atom({ plugin: 'claudius-maximus', key: 'tick' } as const, 0)
+const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
+const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
+const isUltracode = atom({ plugin: 'claudius-modulus', key: 'isUltracode' } as const, false)
+const isPlan = atom({ plugin: 'claudius-modulus', key: 'isPlan' } as const, false)
+const isCollapsed = atom({ plugin: 'claudius-modulus', key: 'isCollapsed' } as const, false)
+const agents = atom({ plugin: 'claudius-modulus', key: 'agents' } as const, [])
+const limits = atom({ plugin: 'claudius-modulus', key: 'limits' } as const, [])
+const samples = atom({ plugin: 'claudius-modulus', key: 'samples' } as const, [])
+const costUsd = atom({ plugin: 'claudius-modulus', key: 'costUsd' } as const, null)
+const ctxPercent = atom({ plugin: 'claudius-modulus', key: 'ctxPercent' } as const, null)
+const tick = atom({ plugin: 'claudius-modulus', key: 'tick' } as const, 0)
 
 type Measured = {
   context: SessionContextUsage
@@ -31,15 +31,13 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 3_000
-const QUIET_EVERY = 10 // redraws between ticks while no agent is running (30 s)
+const REDRAW_EVERY_MS = 200 // one frame of the blinking cursor before the name; also keeps the ring's seconds fresh
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
-const PLAN_KEY = 'claudius-maximus:isPlan'
-const COLLAPSE_KEY = 'claudius-maximus:isCollapsed'
+const PLAN_KEY = 'claudius-modulus:isPlan'
+const COLLAPSE_KEY = 'claudius-modulus:isCollapsed'
 let lastStep = ''
-let beat = 0
 
 async function ingest($: EngineInterface, u: Measured) {
   const now = await $.clock.now()
@@ -80,10 +78,7 @@ export const register: Register = on => {
     await update($, isCollapsed, () => collapsed)
     await ingest($, await $.session.usage())
     $.clock.every(REDRAW_EVERY_MS, async () => {
-      // The ring needs fresh seconds while agents run; otherwise redraw only every 30 s.
-      beat += 1
-      const busy = (await read($, agents)).some(a => a.t1 === undefined)
-      if (busy || beat % QUIET_EVERY === 0) await update($, tick, n => n + 1)
+      await update($, tick, n => n + 1)
     })
     return next(e)
   })
@@ -145,6 +140,7 @@ export const register: Register = on => {
     if (e.props.hasSurvey) return next(e)
 
     // Read so the countdowns and the second row redraw on each tick.
+    await read($, tick)
 
     const collapsed = await read($, isCollapsed)
     const ui = $.ui.resolve(e)
