@@ -74,7 +74,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.redraw()
 
     expect(await ui.find({ type: 'Text', text: /50%/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /resets 1h 30m/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /resets in 1h 30m/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Burned 50%/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Pace Burn 100%/ })).toBeDefined()
     // a plan never shows cost, and context only shows once it is nearly full

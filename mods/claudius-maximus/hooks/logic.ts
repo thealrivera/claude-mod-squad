@@ -254,6 +254,11 @@ export function barCells(used: number, projected: number, width: number, phase =
   return cells
 }
 
+// The cell that holds the edge at p percent: where a marker goes.
+export function markerIdx(p: number, width: number): number {
+  return Math.min(width - 1, Math.max(0, Math.floor((Math.min(100, Math.max(0, p)) / 100) * width)))
+}
+
 export const BURN_MARK = '#ffffff'
 export const PACE_MARK = '#ffd166'
 export const POTENTIAL = 'POTENTIAL'
@@ -270,8 +275,7 @@ export function barWithMarkers(
   showPace: boolean,
 ): BarCell[] {
   const cells = barCells(used, showPace ? projected : used, width, phase)
-  const idx = (p: number) =>
-    Math.min(width - 1, Math.max(0, Math.floor((Math.min(100, Math.max(0, p)) / 100) * width)))
+  const idx = (p: number) => markerIdx(p, width)
   const mark = (i: number, color: string) => {
     const base = cells[i]!
     cells[i] = { ch: '┃', color, bg: base.ch === '█' ? base.color : (base.bg ?? TRACK) }

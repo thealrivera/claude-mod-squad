@@ -127,6 +127,7 @@ export const register: Register = on => {
       ctxPercent: await read($, ctxPercent),
       now: await $.clock.now(),
       phase: await read($, tick),
+      surface: e.surface,
       cols: Math.max(30, e.props.bodyColumns),
     })
   })

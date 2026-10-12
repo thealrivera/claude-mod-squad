@@ -2,15 +2,16 @@ import type { ElementTable, RenderElement } from 'claude-code'
 
 import type { Limit, Sample } from '../types'
 import {
+  BURN_MARK,
   FIVE_HOUR,
+  PACE_MARK,
   PAL,
   SEVEN_DAY,
-  BURN_MARK,
-  PACE_MARK,
   barWithMarkers,
   fmtDur,
   fmtPct,
   forecast,
+  markerIdx,
   prettyModel,
   ramp,
   warnings,
@@ -32,6 +33,7 @@ export type BandData = {
   ctxPercent: number | null
   now: number
   phase: number
+  surface: string
   cols: number
 }
 
@@ -74,10 +76,18 @@ const EFFORT_GLYPH: Record<string, string> = {
   max: '⬤',
 }
 
+// The label column. Every row that sits against the bar starts after it, so the
+// rows stay aligned whatever the label says.
 const LABEL = 'Session'
+const LABEL_W = 9
 
 export function band(ui: Ui, d: BandData) {
   const { Box, Text } = ui
+
+  // The block glyphs of the bar draw two text columns wide in the desktop app and one
+  // in a terminal. Everything positioned against the bar is counted in text columns.
+  const cellCols = d.surface === 'terminal' ? 1 : 2
+  const half = cellCols === 2 ? 1 : 0
 
   // The two chips are the only backgrounds in the band.
   const chip = (label: string, stops: string[], fg: string = PAL.ink) => (
@@ -89,50 +99,60 @@ export function band(ui: Ui, d: BandData) {
       ))}
     </Text>
   )
+  const gap = (n: number, key: string) => (n > 0 ? <Box key={key} width={n} /> : null)
 
   const five = d.limits.find(l => l.kind === FIVE_HOUR)
   const week = d.limits.find(l => l.kind === SEVEN_DAY)
   const fc = forecast(d.samples, five, d.now)
   const warns = warnings(d.effort, d.isUltracode, d.limits)
 
-  const vLabel = versionLabel()
-  const budget = d.cols
-
-  // ---- the chips: which model, how hard it is thinking -------------------
+  // ---- row 1: what is running, and who is running it ---------------------
 
   const model = prettyModel(d.model)
   const chips: RenderElement[] = [chip(`◆ ${model}`, [PAL.violet, PAL.blue], '#ffffff')]
-  let chipsWidth = model.length + 4
   if (d.effort) {
     const stops = EFFORT_GRADIENT[d.effort] ?? EFFORT_GRADIENT.medium!
     const glyph = EFFORT_GLYPH[d.effort] ?? '◑'
     chips.push(chip(`${glyph} ${d.effort}`, stops, d.effort === 'low' ? '#e2e8f0' : PAL.ink))
-    chipsWidth += d.effort.length + 5 + 1
   }
+  const row1 = (
+    <Box flexDirection="row" justifyContent="space-between" gap={2}>
+      <Box flexDirection="row" gap={1}>
+        {chips}
+      </Box>
+      <Box flexDirection="row" gap={1}>
+        <Text>
+          {[...BRAND].map((c, i, a) => (
+            <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+              {c}
+            </Text>
+          ))}
+        </Text>
+        <Text color={PAL.mute} dimColor>
+          {versionLabel()}
+        </Text>
+      </Box>
+    </Box>
+  )
 
-  // ---- the one line: session usage and whether it will last --------------
+  // ---- rows 2 and 3: the session bar, and the labels under its markers ---
 
-  // Things that only show up when they matter, so the line stays quiet.
+  // Things that only show up when they matter, so the row stays quiet.
   const extras: { text: string; color: string }[] = []
   if (week && week.percentUsed >= 80) {
-    extras.push({
-      text: `week ${fmtPct(week.percentUsed)}`,
-      color: week.percentUsed >= 95 ? BAD : WATCH,
-    })
+    extras.push({ text: `week ${fmtPct(week.percentUsed)}`, color: week.percentUsed >= 95 ? BAD : WATCH })
   }
   if (d.ctxPercent !== null && d.ctxPercent >= 85) {
-    extras.push({
-      text: `context ${fmtPct(d.ctxPercent)} full`,
-      color: d.ctxPercent >= 95 ? BAD : WATCH,
-    })
+    extras.push({ text: `context ${fmtPct(d.ctxPercent)} full`, color: d.ctxPercent >= 95 ? BAD : WATCH })
   }
 
-  let usage: RenderElement
-  let legend: RenderElement | null = null
+  let barRow: RenderElement
+  let labelRow: RenderElement | null = null
+
   if (!five) {
     // No plan limits: say so plainly, and show cost only for API billing.
     const showCost = !d.isPlan && d.costUsd !== null && d.costUsd > 0
-    usage = (
+    barRow = (
       <Text wrap="truncate" color={PAL.mute}>
         {showCost ? `$${d.costUsd!.toFixed(2)} this session` : 'usage shows after your first response'}
       </Text>
@@ -140,127 +160,139 @@ export function band(ui: Ui, d: BandData) {
   } else {
     const color = STATUS[fc.state]
     const pct = fmtPct(five.percentUsed)
-    const resets = fc.msToReset === undefined ? '' : `resets ${fmtDur(fc.msToReset)}`
     const projected = fmtPct(Math.min(100, fc.projected))
     const showPace = fc.state === 'ok' || fc.state === 'tight' || fc.state === 'danger'
+    const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
     const note =
-      fc.state === 'danger' ? (
-        <Text color={BAD} bold>
-          {`  ·  out in ~${fmtDur(fc.msToEmpty)}`}
-        </Text>
-      ) : fc.state === 'limit' ? (
-        <Text color={BAD} bold>
-          {'  ·  limit reached'}
-        </Text>
-      ) : fc.state === 'idle' ? (
-        <Text color={PAL.mute}>{'  ·  idle'}</Text>
-      ) : null
-    legend = (
-      <Text>
-        <Text color={BURN_MARK} bold>
-          ┃
-        </Text>
-        <Text color={PAL.text}> Burned {pct}</Text>
-        {showPace ? (
-          <Text>
-            <Text color={PACE_MARK} bold>
-              {'   ┃'}
-            </Text>
-            <Text color={PAL.text}> Pace Burn {projected}</Text>
-          </Text>
-        ) : null}
-        {note}
-      </Text>
-    )
+      fc.state === 'danger'
+        ? `out in ~${fmtDur(fc.msToEmpty)}`
+        : fc.state === 'limit'
+          ? 'limit reached'
+          : fc.state === 'idle'
+            ? 'idle'
+            : ''
+    const noteColor = fc.state === 'idle' ? PAL.mute : BAD
 
-    // Rare extras come before the bar shrinks below a readable size.
-    const fixed = chipsWidth + 2 + LABEL.length + 1 + 1 + pct.length + 2 + resets.length
-    const tail = (n: number) => extras.slice(0, n).reduce((sum, x) => sum + x.text.length + 3, 0)
+    // Room for the bar, in text columns, after everything else on its row.
+    const tailCols =
+      1 + pct.length + 2 + resets.length + (note ? note.length + 3 : 0) + extras.reduce((n, x) => n + x.text.length + 3, 0)
     let keep = extras.length
-    while (keep > 0 && budget - fixed - tail(keep) < 10) keep--
-    const width = Math.max(8, Math.min(36, budget - fixed - tail(keep)))
+    const room = (k: number) =>
+      d.cols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
+    while (keep > 0 && room(keep) < 8 * cellCols) keep--
+    const width = Math.max(8, Math.min(cellCols === 2 ? 30 : 40, Math.floor(room(keep) / cellCols)))
     const cells = barWithMarkers(five.percentUsed, fc.projected, width, d.phase, showPace)
 
-    usage = (
-      <Text wrap="truncate">
-        <Text color={PAL.mute}>{LABEL} </Text>
-        {cells.map((cell, i) => (
-          <Text
-            key={String(i)}
-            color={cell.color}
-            {...(cell.bg ? { backgroundColor: cell.bg } : {})}
-          >
-            {cell.ch}
-          </Text>
-        ))}
-        <Text color={color} bold>
-          {' '}
-          {pct}
-        </Text>
-        <Text color={PAL.mute}>  {resets}</Text>
-        {extras.slice(0, keep).map(x => (
-          <Text key={x.text}>
-            <Text color={PAL.mute}> · </Text>
-            <Text color={x.color} bold>
-              {x.text}
+    barRow = (
+      <Box flexDirection="row">
+        <Box width={LABEL_W}>
+          <Text color={PAL.mute}>{LABEL}</Text>
+        </Box>
+        <Box flexShrink={1}>
+          <Text wrap="truncate">
+            {cells.map((cell, i) => (
+              <Text key={String(i)} color={cell.color} {...(cell.bg ? { backgroundColor: cell.bg } : {})}>
+                {cell.ch}
+              </Text>
+            ))}
+            <Text color={color} bold>
+              {' '}
+              {pct}
             </Text>
+            <Text color={PAL.mute}>  {resets}</Text>
+            {note ? (
+              <Text>
+                <Text color={PAL.mute}> · </Text>
+                <Text color={noteColor} bold>
+                  {note}
+                </Text>
+              </Text>
+            ) : null}
+            {extras.slice(0, keep).map(x => (
+              <Text key={x.text}>
+                <Text color={PAL.mute}> · </Text>
+                <Text color={x.color} bold>
+                  {x.text}
+                </Text>
+              </Text>
+            ))}
           </Text>
-        ))}
-      </Text>
+        </Box>
+      </Box>
     )
+
+    // Labels under their markers. A label starts at its marker, or ends at it when
+    // it would run past the bar; two labels that would collide sit side by side.
+    const burnedAt = markerIdx(five.percentUsed, width) * cellCols + half
+    const paceAt = markerIdx(fc.projected, width) * cellCols + half
+    const hasPace = showPace && paceAt > burnedAt
+    const barCols = width * cellCols
+    const burnedText = `Burned ${pct}`
+    const paceText = `Pace Burn ${projected}`
+
+    type Seg = { start: number; len: number; node: RenderElement }
+    const label = (at: number, text: string, mark: string): Seg => {
+      const len = text.length + 2
+      const isFlipped = at + len > barCols
+      const start = isFlipped ? Math.max(0, at + 1 - len) : at
+      const line = (
+        <Text color={mark} bold>
+          ┃
+        </Text>
+      )
+      return {
+        start,
+        len,
+        node: (
+          <Text>
+            {isFlipped ? null : line}
+            <Text color={PAL.text}>{isFlipped ? `${text} ` : ` ${text}`}</Text>
+            {isFlipped ? line : null}
+          </Text>
+        ),
+      }
+    }
+    const segs = [label(burnedAt, burnedText, BURN_MARK)]
+    if (hasPace) {
+      const pace = label(paceAt, paceText, PACE_MARK)
+      const end = segs[0]!.start + segs[0]!.len
+      segs.push({ ...pace, start: Math.max(pace.start, end + 2) })
+    }
+    const parts: (RenderElement | null)[] = [<Box key="lead" width={LABEL_W} />]
+    let at = 0
+    segs.forEach((seg, i) => {
+      parts.push(gap(seg.start - at, `g${i}`))
+      parts.push(<Box key={`s${i}`}>{seg.node}</Box>)
+      at = seg.start + seg.len
+    })
+    labelRow = <Box flexDirection="row">{parts}</Box>
   }
 
-  // ---- row 2: the verdict, then the warning and the quips taking turns ---
+  // ---- row 4: the warning and the quips taking turns ---------------------
 
   const top = warns[0]
   const pick = rowFor(d.now, warns.length > 0)
-  const rest: RenderElement =
+  const last: RenderElement =
     pick.kind === 'alert' && top ? (
-      <Text color={WARN_COLOR[top.kind]}>
+      <Text wrap="truncate" color={WARN_COLOR[top.kind]}>
         <Text bold>⚠ {warns.map(w => w.label).join(' + ')}</Text>
         <Text>  {top.detail}</Text>
       </Text>
     ) : (
-      <Text>
+      <Text wrap="truncate">
         <Text color={PAL.violet}>✦ </Text>
         <Text color={PAL.mute} italic>
           {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
         </Text>
       </Text>
     )
-  const second: RenderElement = (
-    <Text wrap="truncate">
-      {legend ? (
-        <Text>
-          {legend}
-          <Text color={PAL.mute}>  ·  </Text>
-        </Text>
-      ) : null}
-      {rest}
-    </Text>
-  )
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" gap={1}>
-        {chips}
-        <Box flexShrink={1}>{usage}</Box>
-      </Box>
-      <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexShrink={1}>{second}</Box>
-        <Box flexDirection="row" gap={1}>
-          <Text>
-            {[...BRAND].map((c, i, a) => (
-              <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
-                {c}
-              </Text>
-            ))}
-          </Text>
-          <Text color={PAL.mute} dimColor>
-            {vLabel}
-          </Text>
-        </Box>
-      </Box>
+      {row1}
+      {barRow}
+      {labelRow}
+      {last}
     </Box>
   )
 }
