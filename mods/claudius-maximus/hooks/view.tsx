@@ -110,7 +110,7 @@ export function band(ui: Ui, d: BandData) {
       {spriteCells(level).map((row, r) => (
         <Text key={String(r)}>
           {row.map((cell, c) => (
-            <Text key={String(c)} color={cell.color} {...(cell.bg ? { backgroundColor: cell.bg } : {})}>
+            <Text key={String(c)} color={cell.color}>
               {cell.ch}
             </Text>
           ))}
@@ -158,7 +158,7 @@ export function band(ui: Ui, d: BandData) {
   // Text columns the chips take, so the session block beside them gets the rest.
   const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
   const leftCols = Math.max(chipsWidth, 30)
-  const blockCols = d.cols - 8 * cellCols - leftCols - 4
+  const blockCols = d.cols - 3 * cellCols - leftCols - 4
 
   const brand = (
     <Box flexDirection="row" gap={1}>

@@ -255,12 +255,19 @@ test('the two markers are different colours, and neither is a track or gradient 
   expect(PACE_MARK).not.toBe(TRACK)
 })
 
-test('five mascots, each a rectangle of 3 rows by 8 cells, each different from the rest', () => {
+test('five mascots, each 2 rows of 3 cells, one flat colour, no empty cell, none alike', () => {
   expect(LEVEL_NAMES.length).toBe(5)
   const looks = ([1, 2, 3, 4, 5] as const).map(l => {
     const rows = spriteCells(l)
-    expect(rows.length).toBe(3)
-    for (const row of rows) expect(row.length).toBe(8)
+    expect(rows.length).toBe(2)
+    for (const row of rows) {
+      expect(row.length).toBe(3)
+      for (const cell of row) {
+        expect(cell.ch).not.toBe(' ')
+        expect(Object.keys(cell)).toEqual(['ch', 'color'])
+      }
+    }
+    expect(new Set(rows.flat().map(c => c.color)).size).toBe(1)
     return JSON.stringify(rows)
   })
   expect(new Set(looks).size).toBe(5)
