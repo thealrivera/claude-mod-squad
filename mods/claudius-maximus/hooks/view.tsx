@@ -199,7 +199,7 @@ export function band(ui: Ui, d: BandData) {
   )
 
   const brand = (
-    <Box flexDirection="row" gap={1}>
+    <Box flexDirection="column" alignItems="flex-end">
       <Text>
         {[...BRAND].map((c, i, a) => (
           <Text key={String(i)} color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
@@ -245,7 +245,7 @@ export function band(ui: Ui, d: BandData) {
         <Text color={color} bold>
           {pct}
         </Text>
-        <Text color={PAL.mute}> used  ·  {LEVEL_NAMES[level - 1]}</Text>
+        <Text color={PAL.mute}> used</Text>
       </Text>
     )
     const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
@@ -349,6 +349,9 @@ export function band(ui: Ui, d: BandData) {
             <Box flexDirection="row" gap={1}>
               {chips}
             </Box>
+            <Text color={levelGlyph(level).color} bold>
+              {LEVEL_NAMES[level - 1]}
+            </Text>
           </Box>
         </Box>
         {ring}
