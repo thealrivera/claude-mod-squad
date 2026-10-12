@@ -19,7 +19,7 @@ That's all. The steps below are what it will follow, so you can also run them yo
 *Claude: do these in order, using the Bash tool. Stop and tell the user if a step fails.*
 
 1. **Check the version.** Run `claude --version`. It must be 2.1.295 or newer. If it is older, find a newer
-   `claude` binary and use it for steps 2 to 4. The Claude desktop app keeps one under
+   `claude` binary and use it for steps 2, 3 and 5. The Claude desktop app keeps one under
    `~/Library/Application Support/Claude/claude-code/<version>/`. Tell the user which one you used.
 2. **Add the marketplace.**
    ```bash
@@ -29,8 +29,21 @@ That's all. The steps below are what it will follow, so you can also run them yo
    ```bash
    claude plugin install usage-band@claude-mod-squad --scope user
    ```
-4. **Confirm.** `claude plugin list` should show `usage-band@claude-mod-squad` as `enabled`.
-5. **Tell the user** to start a new session, or run `/reload-plugins` in an open one. The band appears above the prompt.
+4. **Turn on auto-update**, so every change merged to `main` reaches this user. Third-party marketplaces have it off by
+   default and the repo cannot switch it on for them, so set it in the user's settings. Open `~/.claude/settings.json`
+   (or `settings.json` in the folder `CLAUDE_CONFIG_DIR` points to, if it is set). Step 2 already wrote
+   `extraKnownMarketplaces.claude-mod-squad` there. Add `"autoUpdate": true` to that entry and change nothing else:
+   ```json
+   "extraKnownMarketplaces": {
+     "claude-mod-squad": {
+       "source": { "source": "github", "repo": "thealrivera/claude-mod-squad" },
+       "autoUpdate": true
+     }
+   }
+   ```
+   Tell the user you did this. They can undo it in `/plugin`, under Marketplaces, by choosing Disable auto-update.
+5. **Confirm.** `claude plugin list` should show `usage-band@claude-mod-squad` as `enabled`.
+6. **Tell the user** to start a new session, or run `/reload-plugins` in an open one. The band appears above the prompt.
 
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
@@ -51,7 +64,14 @@ Install from a terminal, not from inside the desktop app's Code tab: `/plugin in
 - **API billing:** there are no plan limits, so it shows session cost instead of the bar.
 - **Version:** a small dim `v1.0` sits at the lower right of the band.
 
-## Update, remove
+## Updates
+
+With auto-update on (step 4), a merge to `main` reaches users on its own: in a session, a few minutes after the first
+message, Claude Code fetches the new commit and shows `Plugin updated: usage-band · Run /reload-plugins to apply`.
+Run `/reload-plugins` to switch to it now, or it loads the next time Claude Code starts. Auto-update is off if the user
+sets `DISABLE_AUTOUPDATER=1` or `DISABLE_UPDATES=1`.
+
+To update by hand:
 
 ```bash
 claude plugin marketplace update claude-mod-squad
@@ -63,6 +83,8 @@ claude plugin uninstall usage-band@claude-mod-squad
 ```
 
 ## Versions
+
+Installed copies are versioned by commit, so users always follow `main`.
 
 Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claude-mod-squad/releases).
 `v1.0.0` is the locked first release of `usage-band`; `main` may move ahead of it.
