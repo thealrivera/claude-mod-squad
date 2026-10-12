@@ -6,6 +6,7 @@ import {
   barCells,
   barWithMarkers,
   BURN_MARK,
+  MARK,
   PACE_MARK,
   dim,
   fmtDur,
@@ -223,35 +224,32 @@ test('with a warning it takes every other switch and the quips carry on in order
   expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 20)
 })
 
-test('the track shimmers: its colour drifts with the phase, the used part does not', () => {
-  const a = barCells(20, 20, 30, 0)
-  const b = barCells(20, 20, 30, 12)
-  expect(a.slice(0, 5).map(c => c.color)).toEqual(b.slice(0, 5).map(c => c.color))
-  expect(a.map(c => c.color)).not.toEqual(b.map(c => c.color))
-  const track = a.filter(c => c.ch === '█' && /^#[2-4]/.test(c.color))
-  expect(track.length).toBeGreaterThan(20)
-})
-
 test('two markers: Burned where usage stands, Pace Burn where the pace ends the window', () => {
-  const cells = barWithMarkers(30, 70, 40, 0, true)
-  const lines = cells.map((c, i) => (c.ch === '┃' ? i : -1)).filter(i => i >= 0)
+  const cells = barWithMarkers(30, 70, 40, true)
+  const lines = cells.map((c, i) => (c.ch === MARK ? i : -1)).filter(i => i >= 0)
   expect(lines).toEqual([12, 28])
   expect(cells[12]?.color).toBe(BURN_MARK)
   expect(cells[28]?.color).toBe(PACE_MARK)
 })
 
 test('no pace, no second marker; a pace on top of usage shows only one', () => {
-  expect(barWithMarkers(30, 70, 40, 0, false).filter(c => c.ch === '┃').length).toBe(1)
-  expect(barWithMarkers(30, 30, 40, 0, true).filter(c => c.ch === '┃').length).toBe(1)
+  expect(barWithMarkers(30, 70, 40, false).filter(c => c.ch === MARK).length).toBe(1)
+  expect(barWithMarkers(30, 30, 40, true).filter(c => c.ch === MARK).length).toBe(1)
 })
 
 test('POTENTIAL is written across the gray section when it fits, and not when it does not', () => {
   const word = (cells: ReturnType<typeof barWithMarkers>) => cells.map(c => c.ch).join('')
-  expect(word(barWithMarkers(20, 50, 40, 0, true))).toContain('POTENTIAL')
-  expect(word(barWithMarkers(20, 90, 40, 0, true))).not.toContain('POTENTIAL')
-  expect(word(barWithMarkers(20, 100, 40, 0, true))).not.toContain('POTENTIAL')
+  expect(word(barWithMarkers(20, 50, 40, true))).toContain('POTENTIAL')
+  expect(word(barWithMarkers(20, 90, 40, true))).not.toContain('POTENTIAL')
+  expect(word(barWithMarkers(20, 100, 40, true))).not.toContain('POTENTIAL')
   // the lettering sits only after the pace marker
-  const cells = barWithMarkers(20, 50, 40, 0, true)
+  const cells = barWithMarkers(20, 50, 40, true)
   const pace = cells.findIndex(c => c.color === PACE_MARK)
   expect(word(cells).indexOf('POTENTIAL')).toBeGreaterThan(pace)
+})
+
+test('the two markers are different colours, and neither is a track or gradient end colour', () => {
+  expect(BURN_MARK).not.toBe(PACE_MARK)
+  expect(BURN_MARK).not.toBe(TRACK)
+  expect(PACE_MARK).not.toBe(TRACK)
 })

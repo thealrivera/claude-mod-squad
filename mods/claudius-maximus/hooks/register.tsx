@@ -28,7 +28,7 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 500
+const REDRAW_EVERY_MS = 30_000
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
@@ -113,7 +113,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
 
-    // Read so the countdowns and the second row redraw on each tick (the bar shimmer steps with it).
+    // Read so the countdowns and the second row redraw on each tick.
 
     const ui = $.ui.resolve(e)
     return band(ui, {
@@ -126,7 +126,6 @@ export const register: Register = on => {
       costUsd: await read($, costUsd),
       ctxPercent: await read($, ctxPercent),
       now: await $.clock.now(),
-      phase: await read($, tick),
       surface: e.surface,
       cols: Math.max(30, e.props.bodyColumns),
     })

@@ -4,6 +4,7 @@ import type { Limit, Sample } from '../types'
 import {
   BURN_MARK,
   FIVE_HOUR,
+  MARK,
   PACE_MARK,
   PAL,
   SEVEN_DAY,
@@ -32,7 +33,6 @@ export type BandData = {
   costUsd: number | null
   ctxPercent: number | null
   now: number
-  phase: number
   surface: string
   cols: number
 }
@@ -87,7 +87,6 @@ export function band(ui: Ui, d: BandData) {
   // The block glyphs of the bar draw two text columns wide in the desktop app and one
   // in a terminal. Everything positioned against the bar is counted in text columns.
   const cellCols = d.surface === 'terminal' ? 1 : 2
-  const half = cellCols === 2 ? 1 : 0
 
   // The two chips are the only backgrounds in the band.
   const chip = (label: string, stops: string[], fg: string = PAL.ink) => (
@@ -99,7 +98,6 @@ export function band(ui: Ui, d: BandData) {
       ))}
     </Text>
   )
-  const gap = (n: number, key: string) => (n > 0 ? <Box key={key} width={n} /> : null)
 
   const five = d.limits.find(l => l.kind === FIVE_HOUR)
   const week = d.limits.find(l => l.kind === SEVEN_DAY)
@@ -197,7 +195,7 @@ export function band(ui: Ui, d: BandData) {
       d.cols - LABEL_W - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
     while (keep > 0 && room(keep) < 8 * cellCols) keep--
     const width = Math.max(8, Math.min(cellCols === 2 ? 30 : 40, Math.floor(room(keep) / cellCols)))
-    const cells = barWithMarkers(five.percentUsed, fc.projected, width, d.phase, showPace)
+    const cells = barWithMarkers(five.percentUsed, fc.projected, width, showPace)
 
     barRow = (
       <Box flexDirection="row">
@@ -230,51 +228,28 @@ export function band(ui: Ui, d: BandData) {
       </Box>
     )
 
-    // Labels under their markers. A label starts at its marker, or ends at it when
-    // it would run past the bar; two labels that would collide sit side by side.
-    const burnedAt = markerIdx(five.percentUsed, width) * cellCols + half
-    const paceAt = markerIdx(fc.projected, width) * cellCols + half
-    const hasPace = showPace && paceAt > burnedAt
-    const barCols = width * cellCols
-    const burnedText = 'Burned'
-    const paceText = 'Pace Burn'
-
-    type Seg = { start: number; len: number; node: RenderElement }
-    const label = (at: number, text: string, mark: string): Seg => {
-      const len = text.length + 2
-      const isFlipped = at + len > barCols
-      const start = isFlipped ? Math.max(0, at + 1 - len) : at
-      const line = (
-        <Text color={mark} bold>
-          ┃
-        </Text>
-      )
-      return {
-        start,
-        len,
-        node: (
-          <Text>
-            {isFlipped ? null : line}
-            <Text color={PAL.text}>{isFlipped ? `${text} ` : ` ${text}`}</Text>
-            {isFlipped ? line : null}
+    // The legend starts at the left edge of the bar. Its swatches are the markers.
+    const hasPace = showPace && markerIdx(fc.projected, width) > markerIdx(five.percentUsed, width)
+    labelRow = (
+      <Box flexDirection="row">
+        <Box width={LABEL_W} />
+        <Text>
+          <Text color={BURN_MARK} bold>
+            {MARK}
           </Text>
-        ),
-      }
-    }
-    const segs = [label(burnedAt, burnedText, BURN_MARK)]
-    if (hasPace) {
-      const pace = label(paceAt, paceText, PACE_MARK)
-      const end = segs[0]!.start + segs[0]!.len
-      segs.push({ ...pace, start: Math.max(pace.start, end + 2) })
-    }
-    const parts: (RenderElement | null)[] = [<Box key="lead" width={LABEL_W} />]
-    let at = 0
-    segs.forEach((seg, i) => {
-      parts.push(gap(seg.start - at, `g${i}`))
-      parts.push(<Box key={`s${i}`}>{seg.node}</Box>)
-      at = seg.start + seg.len
-    })
-    labelRow = <Box flexDirection="row">{parts}</Box>
+          <Text color={PAL.text}> Burned</Text>
+          {hasPace ? (
+            <Text>
+              <Text color={PAL.mute}>{'     '}</Text>
+              <Text color={PACE_MARK} bold>
+                {MARK}
+              </Text>
+              <Text color={PAL.text}> Pace Burn</Text>
+            </Text>
+          ) : null}
+        </Text>
+      </Box>
+    )
   }
 
   // ---- row 4: the verdict, then the warning or a quip if the row has room ---
