@@ -186,7 +186,7 @@ test('a bar of more cells has finer steps', () => {
 
 test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
-  expect(versionLabel('1.2.0')).toBe('v1.3.0')
+  expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
   expect(versionLabel(VERSION)).toBe('v1.3.0')
 })
