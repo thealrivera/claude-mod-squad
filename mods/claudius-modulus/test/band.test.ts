@@ -22,7 +22,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^v1\.3\.1$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
     await ui.unmount()
   }
@@ -109,7 +109,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     // the quip has its own line, so it shows even in a normal-width band
     expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
@@ -172,8 +172,8 @@ test('the quip and the verdict both show, in a wide band too', async ($, on) => 
   })
   await $.session.measure(reading(20, 30))
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /On track|Limit in/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Projecting you hit|Limit in/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -189,12 +189,12 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   })
   await $.session.measure(reading(20, 30))
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeDefined()
 
   await ui.press({ key: 'toggle' })
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
   // there is room, so the short forecast shows beside the bar, and the session % leads the bar
@@ -204,7 +204,7 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
 
   await ui.press({ key: 'toggle' })
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -224,7 +224,7 @@ test('a collapsed band stays collapsed in the next session', async ($, on) => {
   })
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /^[▁-█] $/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^▌ $/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -257,7 +257,7 @@ for (const [cols, hasMessage] of [
   })
 }
 
-test('the block before the brand animates on its own as the clock runs', async ($, on) => {
+test('the cursor before the brand blinks on its own as the clock runs', async ($, on) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-11T20:00:00Z') })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
@@ -269,9 +269,9 @@ test('the block before the brand animates on its own as the clock runs', async (
   })
   const seen = new Set<string>()
   for (let i = 0; i < 6; i++) {
-    const el = await ui.find({ type: 'Text', text: /^[▁-█] $/ })
+    const el = await ui.find({ type: 'Text', text: /^▌ $/ })
     seen.add(JSON.stringify(el))
-    await clock.advance(300)
+    await clock.advance(200)
     await ui.redraw()
   }
   expect(seen.size).toBeGreaterThan(1)

@@ -31,7 +31,7 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 300 // one frame of the little critter before the name; also keeps the ring's seconds fresh
+const REDRAW_EVERY_MS = 200 // one frame of the blinking cursor before the name; also keeps the ring's seconds fresh
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0

@@ -35,13 +35,14 @@ export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
   return { ch: BARS[level - 1]!, color: COLORS[level - 1]! }
 }
 
-// The breathing block before the brand: a bar that swells and falls like a cursor that
-// has had too much coffee, sweeping from the first colour to the second and back.
-export const CRITTER = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃', '▂'] as const
-export const CRITTER_MS = 300
+// The blinking cursor before the brand: a thin block that fades in and out on a cosine,
+// so it eases like a calm blink rather than snapping on and off.
+export const CURSOR = '▌'
+export const CURSOR_MS = 200
+const CURSOR_FRAMES = 6
 
-export function critterFrame(now: number): { ch: string; t: number } {
-  const i = Math.floor(now / CRITTER_MS) % CRITTER.length
-  const half = CRITTER.length / 2
-  return { ch: CRITTER[i]!, t: i <= half ? i / half : (CRITTER.length - i) / half }
+// 1 = fully lit, 0 = faded into the background.
+export function cursorGlow(now: number): number {
+  const i = Math.floor(now / CURSOR_MS) % CURSOR_FRAMES
+  return (1 + Math.cos((2 * Math.PI * i) / CURSOR_FRAMES)) / 2
 }
