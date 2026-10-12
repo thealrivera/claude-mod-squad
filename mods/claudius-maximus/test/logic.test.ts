@@ -13,6 +13,8 @@ import {
   fmtPct,
   forecast,
   prettyModel,
+  shortEffort,
+  shortModel,
   pushSample,
   ramp,
   warnings,
@@ -336,4 +338,15 @@ test('the ring is a valid SVG with the count and the ETA, and the pie follows th
   expect(svg).toContain('~3m')
   expect(pieGlyph(0)).toBe('○')
   expect(pieGlyph(1)).toBe('●')
+})
+
+test('collapsed chips are short: S 5.5 and Low', () => {
+  expect(shortModel('claude-sonnet-5-5')).toBe('S 5.5')
+  expect(shortModel('claude-opus-5-5[1m]')).toBe('O 5.5 1M')
+  expect(shortModel('claude-fable-5-1')).toBe('F 5.1')
+  expect(shortModel(null)).toBe('?')
+  expect(shortEffort('low')).toBe('Low')
+  expect(shortEffort('medium')).toBe('Med')
+  expect(shortEffort('xhigh')).toBe('XHi')
+  expect(shortEffort('max')).toBe('Max')
 })

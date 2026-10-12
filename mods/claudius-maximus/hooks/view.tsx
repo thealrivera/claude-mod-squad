@@ -13,6 +13,8 @@ import {
   forecast,
   markerIdx,
   prettyModel,
+  shortEffort,
+  shortModel,
   ramp,
   warnings,
 } from './logic'
@@ -178,15 +180,23 @@ export function band(ui: Ui, d: BandData) {
 
   // ---- row 1: what is running, and who is running it ---------------------
 
-  const model = prettyModel(d.model)
-  const chips: RenderElement[] = [chip(`◆ ${model}`, [PAL.violet, PAL.blue], '#ffffff')]
+  // Collapsed, the chips are short ("S 5.5", "Low") and drop their symbols.
+  const model = d.isCollapsed ? shortModel(d.model) : prettyModel(d.model)
+  const chips: RenderElement[] = [
+    chip(d.isCollapsed ? model : `◆ ${model}`, [PAL.violet, PAL.blue], '#ffffff'),
+  ]
+  const effortText = d.effort ? (d.isCollapsed ? shortEffort(d.effort) : d.effort) : ''
   if (d.effort) {
     const stops = EFFORT_GRADIENT[d.effort] ?? EFFORT_GRADIENT.medium!
     const glyph = EFFORT_GLYPH[d.effort] ?? '◑'
-    chips.push(chip(`${glyph} ${d.effort}`, stops, d.effort === 'low' ? '#e2e8f0' : PAL.ink))
+    chips.push(
+      chip(d.isCollapsed ? effortText : `${glyph} ${effortText}`, stops, d.effort === 'low' ? '#e2e8f0' : PAL.ink),
+    )
   }
   // Text columns the chips take, so the session block beside them gets the rest.
-  const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
+  const chipsWidth = d.isCollapsed
+    ? model.length + 2 + (d.effort ? 1 + effortText.length + 2 : 0)
+    : model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
   const leftCols = Math.max(chipsWidth, 5 * cellCols + 12)
   // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
   // line with a one-character sprite, the chips and the toggle.
@@ -258,7 +268,6 @@ export function band(ui: Ui, d: BandData) {
     while (keep > 0 && room(keep) < 8 * cellCols) keep--
     // The collapsed bar is shorter, to leave room for a short forecast beside it.
     const cap = d.isCollapsed ? (cellCols === 2 ? 12 : 18) : cellCols === 2 ? 30 : 40
-    const width = Math.max(8, Math.min(cap, Math.floor(room(keep) / cellCols)))
     const short =
       fc.state === 'danger'
         ? { text: `Projected: ~${fmtDur(fc.msToEmpty)}`, color: BAD }
@@ -269,8 +278,11 @@ export function band(ui: Ui, d: BandData) {
             : fc.state === 'idle'
               ? { text: 'idle', color: PAL.mute }
               : undefined
-    const showShort =
-      d.isCollapsed && short !== undefined && room(keep) - width * cellCols >= short.text.length + 3
+    // Collapsed: the message takes its room first and the bar shrinks, down to 6 cells.
+    const msgCols = d.isCollapsed && short ? short.text.length + 3 : 0
+    const minBar = d.isCollapsed ? 6 : 8
+    const width = Math.max(minBar, Math.min(cap, Math.floor((room(keep) - msgCols) / cellCols)))
+    const showShort = msgCols > 0 && room(keep) - width * cellCols >= msgCols
     const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
 
     barRow = (

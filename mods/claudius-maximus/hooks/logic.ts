@@ -122,6 +122,17 @@ export function prettyModel(id: string | null): string {
   return `${name} ${m[2]}${m[3] ? `.${m[3]}` : ''}${is1m ? ' 1M' : ''}`
 }
 
+// Collapsed band: Sonnet 5.5 -> "S 5.5", Opus 5.5 1M -> "O 5.5 1M".
+export function shortModel(id: string | null): string {
+  if (!id) return '?'
+  const [first, ...rest] = prettyModel(id).split(' ')
+  if (!first || rest.length === 0) return '?'
+  return `${first[0]!.toUpperCase()} ${rest.join(' ')}`
+}
+
+const SHORT_EFFORT: Record<string, string> = { low: 'Low', medium: 'Med', high: 'High', xhigh: 'XHi', max: 'Max' }
+export const shortEffort = (e: string): string => SHORT_EFFORT[e] ?? e.slice(0, 4)
+
 export type WarnKind = 'extra' | 'max' | 'ultracode' | 'overage'
 export type Warning = { kind: WarnKind; label: string; detail: string }
 

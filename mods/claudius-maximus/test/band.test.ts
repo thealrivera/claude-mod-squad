@@ -200,7 +200,7 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   // there is room, so the short forecast shows beside the bar, and the session % leads the bar
   expect(await ui.find({ type: 'Text', text: /^\d+(\.\d)?% $/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Projected/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Sonnet|model \?/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^ ?\?? $| \? |S 5/ })).toBeDefined()
 
   await ui.press({ key: 'toggle' })
   await ui.redraw()
@@ -228,25 +228,31 @@ test('a collapsed band stays collapsed in the next session', async ($, on) => {
   await ui.unmount()
 })
 
-test('a narrow collapsed band drops the short forecast but keeps the bar and the reset time', async ($, on) => {
-  mock.clock(on, { now: T0 })
-  mock.store(on, { 'claudius-maximus:isCollapsed': true })
-  on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('session.start', (_$, e) => ({ cwd: e.cwd }))
-  on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
-  on('session.usage', () =>
-    ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
-  )
-  const ui = await $.ui.mount({
-    plugin: 'claudius-maximus',
-    surface: 'terminal',
-    component: 'AbovePrompt',
-    props: { ...PROPS, bodyColumns: 62 },
+for (const [cols, hasMessage] of [
+  [62, true],
+  [34, false],
+] as const) {
+  test(`a ${cols}-column collapsed band ${hasMessage ? 'keeps the projected message and shrinks the bar' : 'drops the message but keeps the bar and the reset time'}`, async ($, on) => {
+    mock.clock(on, { now: T0 })
+    mock.store(on, { 'claudius-maximus:isCollapsed': true })
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }))
+    on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
+    on('session.usage', () =>
+      ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
+    )
+    const ui = await $.ui.mount({
+      plugin: 'claudius-maximus',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { ...PROPS, bodyColumns: cols },
+    })
+    await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+    await $.session.measure(reading(20, 30))
+    await ui.redraw()
+    expect(await ui.find({ type: 'Text', text: /resets/ })).toBeDefined()
+    const message = await ui.find({ type: 'Text', text: /Projected/ })
+    expect(message !== undefined).toBe(hasMessage)
+    await ui.unmount()
   })
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
-  await $.session.measure(reading(20, 30))
-  await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Projected/ })).toBeUndefined()
-  await ui.unmount()
-})
+}
