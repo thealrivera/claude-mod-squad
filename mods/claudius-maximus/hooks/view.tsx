@@ -18,7 +18,7 @@ import {
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
-import { LEVEL_NAMES, levelGlyph, pacingLevel, spriteCells } from './sprites'
+import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
 import { BRAND, versionLabel } from './version'
@@ -109,20 +109,20 @@ export function band(ui: Ui, d: BandData) {
   const fc = forecast(d.samples, five, d.now)
   const warns = warnings(d.effort, d.isUltracode, d.limits)
 
-  // The mascot and how well the session is pacing.
+  // How well the session is pacing, as a five-bar meter and a name.
   const level = pacingLevel(fc.state, fc.projected)
-  const icon = (
-    <Box flexDirection="column">
-      {spriteCells(level).map((row, r) => (
-        <Text key={String(r)}>
-          {row.map((cell, c) => (
-            <Text key={String(c)} color={cell.color}>
-              {cell.ch}
-            </Text>
-          ))}
+  const meter = (
+    <Text>
+      {levelMeter(level).map((cell, i) => (
+        <Text key={String(i)} color={cell.color}>
+          {cell.ch}
         </Text>
       ))}
-    </Box>
+      <Text color={levelColor(level)} bold>
+        {' '}
+        {LEVEL_NAMES[level - 1]}
+      </Text>
+    </Text>
   )
 
   // The ring of background work: on the desktop an SVG, in a terminal a pie and a count.
@@ -187,13 +187,13 @@ export function band(ui: Ui, d: BandData) {
   }
   // Text columns the chips take, so the session block beside them gets the rest.
   const chipsWidth = model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const leftCols = chipsWidth
+  const leftCols = Math.max(chipsWidth, 5 * cellCols + 12)
   // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
   // line with a one-character sprite, the chips and the toggle.
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
   const blockCols = d.isCollapsed
     ? d.cols - 2 - chipsWidth - 2 - 5
-    : d.cols - 3 * cellCols - leftCols - 4 - ringCols
+    : d.cols - leftCols - 4 - ringCols
   const toggle = (
     <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
   )
@@ -343,16 +343,11 @@ export function band(ui: Ui, d: BandData) {
         {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexDirection="row" gap={2} alignSelf="flex-start">
-          {icon}
-          <Box flexDirection="column">
-            <Box flexDirection="row" gap={1}>
-              {chips}
-            </Box>
-            <Text color={levelGlyph(level).color} bold>
-              {LEVEL_NAMES[level - 1]}
-            </Text>
+        <Box flexDirection="column" alignSelf="flex-start">
+          <Box flexDirection="row" gap={1}>
+            {chips}
           </Box>
+          {meter}
         </Box>
         {ring}
         <Box flexDirection="column" flexShrink={1}>

@@ -19,7 +19,7 @@ import {
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
-import { LEVEL_NAMES, pacingLevel, spriteCells } from '../hooks/sprites'
+import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
 const MIN = 60_000
@@ -256,22 +256,21 @@ test('the two markers are different colours, and neither is a track or gradient 
   expect(PACE_MARK).not.toBe(TRACK)
 })
 
-test('five mascots, each 2 rows of 3 cells, one flat colour, no empty cell, none alike', () => {
+test('five levels, each a five-bar meter with that many bars lit, in a colour of its own', () => {
   expect(LEVEL_NAMES.length).toBe(5)
-  const looks = ([1, 2, 3, 4, 5] as const).map(l => {
-    const rows = spriteCells(l)
-    expect(rows.length).toBe(2)
-    for (const row of rows) {
-      expect(row.length).toBe(3)
-      for (const cell of row) {
-        expect(cell.ch).not.toBe(' ')
-        expect(Object.keys(cell)).toEqual(['ch', 'color'])
-      }
-    }
-    expect(new Set(rows.flat().map(c => c.color)).size).toBe(1)
-    return JSON.stringify(rows)
-  })
-  expect(new Set(looks).size).toBe(5)
+  const colors = new Set<string>()
+  for (const l of [1, 2, 3, 4, 5] as const) {
+    const bars = levelMeter(l)
+    expect(bars.length).toBe(5)
+    const lit = bars.filter(b => b.color === levelColor(l))
+    expect(lit.length).toBe(l)
+    expect(bars.slice(0, l).every(b => b.color === levelColor(l))).toBe(true)
+    colors.add(levelColor(l))
+    expect(levelGlyph(l).color).toBe(levelColor(l))
+  }
+  expect(colors.size).toBe(5)
+  // the bars rise left to right
+  expect(levelMeter(5).map(b => b.ch).join('')).toBe('▂▃▅▇█')
 })
 
 test('pacing: idle sleeps, a pace that will not last is the top level, the rest follow the projection', () => {
