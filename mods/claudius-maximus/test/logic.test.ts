@@ -21,6 +21,7 @@ import {
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
+import { ICONS, iconSvg } from '../hooks/icons'
 import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
@@ -349,4 +350,20 @@ test('collapsed chips are short: S 5.5 and Low', () => {
   expect(shortEffort('medium')).toBe('Med')
   expect(shortEffort('xhigh')).toBe('XHi')
   expect(shortEffort('max')).toBe('Max')
+})
+
+test('five square icons, 12 by 12, no two alike, drawn as one flat colour', () => {
+  expect(ICONS.length).toBe(5)
+  for (const grid of ICONS) {
+    expect(grid.length).toBe(12)
+    for (const row of grid) expect(row).toMatch(/^[.X]{12}$/)
+  }
+  expect(new Set(ICONS.map(g => g.join('|'))).size).toBe(5)
+  for (const l of [1, 2, 3, 4, 5] as const) {
+    const svg = iconSvg(l, '#d97757')
+    expect(svg.startsWith('<svg')).toBe(true)
+    expect(svg).toContain('viewBox="0 0 12 12"')
+    expect(svg.match(/fill="/g)?.length).toBe(1)
+    expect(svg).toContain('<rect')
+  }
 })
