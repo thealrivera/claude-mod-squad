@@ -134,8 +134,8 @@ export function band(ui: Ui, d: BandData) {
     <Svg
       source={iconSvg(level, levelColor(level))}
       alt={`Pacing level ${level} of 5: ${LEVEL_NAMES[level - 1]}`}
-      width={76}
-      height={76}
+      width={40}
+      height={40}
     />
   ) : null
   const levelLine = Svg ? (
@@ -216,7 +216,7 @@ export function band(ui: Ui, d: BandData) {
   const chipsWidth = d.isCollapsed
     ? model.length + 2 + (d.effort ? 1 + effortText.length + 2 : 0)
     : model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
-  const leftCols = Math.max(chipsWidth, 5 * cellCols + 12) + (Svg ? 8 : 0)
+  const leftCols = Math.max(chipsWidth, 5 * cellCols + 12) + (Svg ? 5 : 0)
   // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
   // line with a one-character sprite, the chips and the toggle.
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
