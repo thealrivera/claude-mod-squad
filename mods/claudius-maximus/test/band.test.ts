@@ -20,7 +20,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.3\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.3\.1$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-maximus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -113,7 +113,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.3\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.3\.1$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -197,7 +197,10 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Sonnet|model \?/ })).toBeDefined()
+  // there is room, so the short forecast shows beside the bar, and the session % leads the bar
+  expect(await ui.find({ type: 'Text', text: /^\d+(\.\d)?% $/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Projected/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^ ?\?? $| \? |S 5/ })).toBeDefined()
 
   await ui.press({ key: 'toggle' })
   await ui.redraw()
@@ -224,3 +227,32 @@ test('a collapsed band stays collapsed in the next session', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
   await ui.unmount()
 })
+
+for (const [cols, hasMessage] of [
+  [62, true],
+  [34, false],
+] as const) {
+  test(`a ${cols}-column collapsed band ${hasMessage ? 'keeps the projected message and shrinks the bar' : 'drops the message but keeps the bar and the reset time'}`, async ($, on) => {
+    mock.clock(on, { now: T0 })
+    mock.store(on, { 'claudius-maximus:isCollapsed': true })
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }))
+    on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
+    on('session.usage', () =>
+      ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
+    )
+    const ui = await $.ui.mount({
+      plugin: 'claudius-maximus',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { ...PROPS, bodyColumns: cols },
+    })
+    await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+    await $.session.measure(reading(20, 30))
+    await ui.redraw()
+    expect(await ui.find({ type: 'Text', text: /resets/ })).toBeDefined()
+    const message = await ui.find({ type: 'Text', text: /Projected/ })
+    expect(message !== undefined).toBe(hasMessage)
+    await ui.unmount()
+  })
+}
