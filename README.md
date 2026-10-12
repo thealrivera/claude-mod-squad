@@ -5,7 +5,7 @@ burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ✦ If you aren't burning 1B tokens a day, are you even alive?            claudius-maximus v1.1
+ ✦ If you aren't burning 1B tokens a day, are you even alive?            claudius-maximus v1.1.0
 ```
 
 ## Install in one step
@@ -50,7 +50,7 @@ That's all. The steps below are what it will follow, so you can also run them yo
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## What it shows (v1.1)
+## What it shows (v1.1.0)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
@@ -85,7 +85,7 @@ claude plugin uninstall claudius-maximus@claudius-maximus
 Installed copies are versioned by commit, so users always follow `main`.
 
 Releases are tagged (`v1.0.0`) and listed under [Releases](https://github.com/thealrivera/claudius-maximus/releases).
-`v1.0.0` is the locked first release (published as `usage-band`, renamed `claudeus-maximus` then `claudius-maximus` in v1.1); `main` may move ahead of it.
+`v1.0.0` is the locked first release (published as `usage-band`, renamed `claudeus-maximus` then `claudius-maximus` in v1.1.0); `main` may move ahead of it.
 
 ## For the maintainer
 

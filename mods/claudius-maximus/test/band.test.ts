@@ -20,7 +20,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.1$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.1\.0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-maximus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /✦/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -113,7 +113,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.1$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.1\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()

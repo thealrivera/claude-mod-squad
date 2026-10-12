@@ -183,11 +183,11 @@ test('a bar of more cells has finer steps', () => {
   expect(dim('#34d399')).not.toBe('#34d399')
 })
 
-test('the version label drops a zero patch', () => {
-  expect(versionLabel('1.0.0')).toBe('v1.0')
-  expect(versionLabel('1.2.0')).toBe('v1.2')
+test('the version label is the full version', () => {
+  expect(versionLabel('1.0.0')).toBe('v1.0.0')
+  expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.1')
+  expect(versionLabel(VERSION)).toBe('v1.1.0')
 })
 
 test('there are twenty quips, each short, distinct and free of em dashes', () => {

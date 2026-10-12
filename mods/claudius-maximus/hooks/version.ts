@@ -4,7 +4,7 @@
 export const BRAND = 'claudius-maximus'
 export const VERSION = '1.1.0'
 
-// 1.0.0 -> v1.0, 1.2.0 -> v1.2, 1.0.1 -> v1.0.1
+// 1.1.0 -> v1.1.0
 export function versionLabel(version: string = VERSION): string {
-  return `v${version.replace(/\.0$/, '')}`
+  return `v${version}`
 }
