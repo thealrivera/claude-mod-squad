@@ -219,3 +219,12 @@ test('with a warning it takes every other switch and the quips carry on in order
   expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
   expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 20)
 })
+
+test('the track shimmers: its colour drifts with the phase, the used part does not', () => {
+  const a = barCells(20, 20, 30, 0)
+  const b = barCells(20, 20, 30, 12)
+  expect(a.slice(0, 5).map(c => c.color)).toEqual(b.slice(0, 5).map(c => c.color))
+  expect(a.map(c => c.color)).not.toEqual(b.map(c => c.color))
+  const track = a.filter(c => c.ch === '█' && /^#[2-4]/.test(c.color))
+  expect(track.length).toBeGreaterThan(20)
+})

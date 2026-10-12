@@ -29,6 +29,7 @@ export type BandData = {
   costUsd: number | null
   ctxPercent: number | null
   now: number
+  phase: number
   cols: number
 }
 
@@ -125,56 +126,52 @@ export function band(ui: Ui, d: BandData) {
   }
 
   let usage: RenderElement
+  let verdict = ''
+  let verdictColor: string = PAL.mute
   if (!five) {
     // No plan limits: say so plainly, and show cost only for API billing.
     const showCost = !d.isPlan && d.costUsd !== null && d.costUsd > 0
     usage = (
-      <Text wrap="truncate">
-        <Text color={PAL.mute}>
-          {showCost ? `$${d.costUsd!.toFixed(2)} this session` : 'usage shows after your first response'}
-        </Text>
+      <Text wrap="truncate" color={PAL.mute}>
+        {showCost ? `$${d.costUsd!.toFixed(2)} this session` : 'usage shows after your first response'}
       </Text>
     )
   } else {
     const color = STATUS[fc.state]
     const pct = fmtPct(five.percentUsed)
     const resets = fc.msToReset === undefined ? '' : `resets ${fmtDur(fc.msToReset)}`
-
-    let verdict = ''
-    let verdictColor: string = PAL.mute
+    const projected = fmtPct(Math.min(100, fc.projected))
     switch (fc.state) {
       case 'ok':
-        verdict = `on pace for ~${fmtPct(Math.min(100, fc.projected))}`
+        verdict = `▸ ${projected} by reset`
         verdictColor = GOOD
         break
       case 'tight':
-        verdict = `on pace for ~${fmtPct(Math.min(100, fc.projected))}`
+        verdict = `▸ ${projected} by reset`
         verdictColor = WATCH
         break
       case 'danger':
-        verdict = `runs out in ~${fmtDur(fc.msToEmpty)}`
+        verdict = `▸ out in ~${fmtDur(fc.msToEmpty)}`
         verdictColor = BAD
         break
       case 'limit':
-        verdict = 'limit reached'
+        verdict = '▸ limit reached'
         verdictColor = BAD
         break
       case 'idle':
-        verdict = 'idle'
+        verdict = '▸ idle'
         break
       default:
         break
     }
 
-    // Drop the rare extras before the bar gets too short to read.
-    const fixed = chipsWidth + 1 + LABEL.length + 1 + 1 + pct.length + 2 + resets.length
-    const tail = (n: number) =>
-      (verdict ? verdict.length + 3 : 0) + extras.slice(0, n).reduce((s, x) => s + x.text.length + 3, 0)
+    // Rare extras come before the bar shrinks below a readable size.
+    const fixed = chipsWidth + 2 + LABEL.length + 1 + 1 + pct.length + 2 + resets.length
+    const tail = (n: number) => extras.slice(0, n).reduce((sum, x) => sum + x.text.length + 3, 0)
     let keep = extras.length
-    while (keep > 0 && budget - fixed - tail(keep) < 8) keep--
-    const width = Math.max(6, Math.min(36, budget - fixed - tail(keep)))
-
-    const cells = barCells(five.percentUsed, fc.projected, width)
+    while (keep > 0 && budget - fixed - tail(keep) < 10) keep--
+    const width = Math.max(8, Math.min(36, budget - fixed - tail(keep)))
+    const cells = barCells(five.percentUsed, fc.projected, width, d.phase)
 
     usage = (
       <Text wrap="truncate">
@@ -193,14 +190,6 @@ export function band(ui: Ui, d: BandData) {
           {pct}
         </Text>
         <Text color={PAL.mute}>  {resets}</Text>
-        {verdict ? (
-          <Text>
-            <Text color={PAL.mute}> · </Text>
-            <Text color={verdictColor} bold>
-              {verdict}
-            </Text>
-          </Text>
-        ) : null}
         {extras.slice(0, keep).map(x => (
           <Text key={x.text}>
             <Text color={PAL.mute}> · </Text>
@@ -213,32 +202,43 @@ export function band(ui: Ui, d: BandData) {
     )
   }
 
-  // ---- a warning line, only while one applies, in plain colour -----------
-
-  // ---- row 2: the warning and the quips take turns ----------------------
+  // ---- row 2: the verdict, then the warning and the quips taking turns ---
 
   const top = warns[0]
   const pick = rowFor(d.now, warns.length > 0)
-  const second: RenderElement =
+  const rest: RenderElement =
     pick.kind === 'alert' && top ? (
-      <Text color={WARN_COLOR[top.kind]} wrap="truncate">
+      <Text color={WARN_COLOR[top.kind]}>
         <Text bold>⚠ {warns.map(w => w.label).join(' + ')}</Text>
         <Text>  {top.detail}</Text>
       </Text>
     ) : (
-      <Text wrap="truncate">
+      <Text>
         <Text color={PAL.violet}>✦ </Text>
         <Text color={PAL.mute} italic>
           {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
         </Text>
       </Text>
     )
+  const second: RenderElement = (
+    <Text wrap="truncate">
+      {verdict ? (
+        <Text>
+          <Text color={verdictColor} bold>
+            {verdict}
+          </Text>
+          <Text color={PAL.mute}>  ·  </Text>
+        </Text>
+      ) : null}
+      {rest}
+    </Text>
+  )
 
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1}>
         {chips}
-        {usage}
+        <Box flexShrink={1}>{usage}</Box>
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexShrink={1}>{second}</Box>

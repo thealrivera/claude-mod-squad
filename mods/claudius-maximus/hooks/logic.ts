@@ -205,6 +205,7 @@ export const PAL = {
 } as const
 
 export const TRACK = '#2b3048'
+export const TRACK_HI = '#454d73'
 
 // One gradient across the whole bar, so a fuller bar shows more of the ramp.
 export const BAR_GRADIENT = [PAL.mint, '#a3e635', PAL.amber, PAL.orange, PAL.red]
@@ -221,7 +222,14 @@ export function dim(color: string): string {
 // A bar in eighths of a cell. Solid is used, a ghost of the same gradient runs on to
 // where the current pace ends the window, and a dark track holds the rest. A cell that
 // holds an edge is a thin block over the colour that follows it, so the tip is smooth.
-export function barCells(used: number, projected: number, width: number): BarCell[] {
+export function barCells(used: number, projected: number, width: number, phase = 0): BarCell[] {
+  // A soft highlight drifts across the unused track, one cell per phase step.
+  const span = width + 10
+  const at = (phase % span) - 5
+  const track = (i: number) => {
+    const d = Math.abs(i - at)
+    return d < 4 ? lerp(TRACK, TRACK_HI, (1 - d / 4) * 0.9) : TRACK
+  }
   const eighths = (p: number) => Math.round((Math.min(100, Math.max(0, p)) / 100) * width * 8)
   const u = eighths(used)
   const pr = Math.max(u, eighths(projected))
@@ -234,13 +242,13 @@ export function barCells(used: number, projected: number, width: number): BarCel
     if (usedFill === 8) {
       cells.push({ ch: '█', color: hue })
     } else if (usedFill > 0) {
-      cells.push({ ch: EIGHTHS[usedFill]!, color: hue, bg: projFill - usedFill >= 4 ? ghost : TRACK })
+      cells.push({ ch: EIGHTHS[usedFill]!, color: hue, bg: projFill - usedFill >= 4 ? ghost : track(i) })
     } else if (projFill === 8) {
       cells.push({ ch: '█', color: ghost })
     } else if (projFill > 0) {
-      cells.push({ ch: EIGHTHS[projFill]!, color: ghost, bg: TRACK })
+      cells.push({ ch: EIGHTHS[projFill]!, color: ghost, bg: track(i) })
     } else {
-      cells.push({ ch: '█', color: TRACK })
+      cells.push({ ch: '█', color: track(i) })
     }
   }
   return cells
