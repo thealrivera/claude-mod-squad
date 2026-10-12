@@ -251,7 +251,7 @@ export function band(ui: Ui, d: BandData) {
     const resets = fc.msToReset === undefined ? '' : `resets in ${fmtDur(fc.msToReset)}`
     // Room for the bar, in text columns, after everything else on its row.
     const tailCols =
-      2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
+      (d.isCollapsed ? pct.length + 1 : 0) + 2 + resets.length + extras.reduce((n, x) => n + x.text.length + 3, 0)
     let keep = extras.length
     const room = (k: number) =>
       blockCols - tailCols + extras.slice(k).reduce((n, x) => n + x.text.length + 3, 0)
@@ -261,9 +261,9 @@ export function band(ui: Ui, d: BandData) {
     const width = Math.max(8, Math.min(cap, Math.floor(room(keep) / cellCols)))
     const short =
       fc.state === 'danger'
-        ? { text: `out ~${fmtDur(fc.msToEmpty)}`, color: BAD }
+        ? { text: `Projected: ~${fmtDur(fc.msToEmpty)}`, color: BAD }
         : fc.state === 'ok' || fc.state === 'tight'
-          ? { text: `~${fmtPct(Math.min(100, fc.projected))} by reset`, color: fc.state === 'ok' ? GOOD : WATCH }
+          ? { text: `Projected: ~${fmtPct(Math.min(100, fc.projected))}`, color: fc.state === 'ok' ? GOOD : WATCH }
           : fc.state === 'limit'
             ? { text: 'limit hit', color: BAD }
             : fc.state === 'idle'
@@ -277,6 +277,11 @@ export function band(ui: Ui, d: BandData) {
       <Box flexDirection="row">
         <Box flexShrink={1}>
           <Text wrap="truncate">
+            {d.isCollapsed ? (
+              <Text color={color} bold>
+                {pct}{' '}
+              </Text>
+            ) : null}
             {cells.map((cell, i) => (
               <Text key={String(i)} color={cell.color} {...(cell.bg ? { backgroundColor: cell.bg } : {})}>
                 {cell.ch}

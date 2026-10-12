@@ -197,8 +197,9 @@ test('the toggle collapses the band to one line and remembers it', async ($, on)
   expect(await ui.find({ type: 'Text', text: /✦/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Session/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
-  // there is room, so the short forecast shows beside the bar
-  expect(await ui.find({ type: 'Text', text: /by reset|out ~/ })).toBeDefined()
+  // there is room, so the short forecast shows beside the bar, and the session % leads the bar
+  expect(await ui.find({ type: 'Text', text: /^\d+(\.\d)?% $/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Projected/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Sonnet|model \?/ })).toBeDefined()
 
   await ui.press({ key: 'toggle' })
@@ -246,6 +247,6 @@ test('a narrow collapsed band drops the short forecast but keeps the bar and the
   await $.session.measure(reading(20, 30))
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /resets in/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /by reset|out ~/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Projected/ })).toBeUndefined()
   await ui.unmount()
 })
