@@ -191,7 +191,7 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.3.1')
+  expect(versionLabel(VERSION)).toBe('v1.4.0')
 })
 
 test('there are twenty quips, each short, distinct and free of em dashes', () => {
