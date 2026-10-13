@@ -362,7 +362,11 @@ test('five square icons, 12 by 12, no two alike, drawn as one flat colour', () =
   for (const l of [1, 2, 3, 4, 5] as const) {
     const svg = iconSvg(l, '#d97757')
     expect(svg.startsWith('<svg')).toBe(true)
-    expect(svg).toContain('viewBox="0 0 12 12"')
+    // the viewBox is square and cropped to the lit pixels, so the glyph is centred in it
+    const [vx, vy, vw, vh] = svg.match(/viewBox="([^"]+)"/)![1]!.split(' ').map(Number)
+    expect(vw).toBe(vh)
+    expect(vw).toBeGreaterThan(0)
+    expect(Number.isFinite(vx) && Number.isFinite(vy)).toBe(true)
     expect(svg.match(/fill="/g)?.length).toBe(1)
     expect(svg).toContain('<rect')
   }

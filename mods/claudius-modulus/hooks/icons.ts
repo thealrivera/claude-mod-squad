@@ -97,8 +97,23 @@ export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string): string {
       x = end
     }
   })
+  // Crop the viewBox to the lit pixels, then make it square and centre the glyph in it, so each
+  // icon sits in the middle of its box whatever its own shape is (the bolt leans left, say).
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] !== 'X') continue
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+    }
+  })
+  const side = Math.max(maxX - minX + 1, maxY - minY + 1)
+  const vx = minX + (maxX - minX + 1) / 2 - side / 2
+  const vy = minY + (maxY - minY + 1) / 2 - side / 2
   return (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" shape-rendering="crispEdges">' +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${side} ${side}" shape-rendering="crispEdges">` +
     `<g fill="${color}">${rects.join('')}</g></svg>`
   )
 }
