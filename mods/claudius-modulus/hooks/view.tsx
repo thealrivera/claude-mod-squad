@@ -368,12 +368,12 @@ export function band(ui: Ui, d: BandData) {
       </Text>
     ) : (
       <Text wrap="truncate">
-        <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR} </Text>
         {[...BRAND].map((c, i, a) => (
           <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
             {c}
           </Text>
         ))}
+        <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
         <Text color={PAL.mute} dimColor>
           {' - '}
         </Text>

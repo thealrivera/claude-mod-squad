@@ -35,9 +35,9 @@ export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
   return { ch: BARS[level - 1]!, color: COLORS[level - 1]! }
 }
 
-// The blinking cursor before the brand: a thin block that fades in and out on a cosine,
+// The blinking cursor after the brand: an underscore that fades in and out on a cosine,
 // so it eases like a calm blink rather than snapping on and off.
-export const CURSOR = '▌'
+export const CURSOR = '_'
 export const CURSOR_MS = 200
 const CURSOR_FRAMES = 6
 
