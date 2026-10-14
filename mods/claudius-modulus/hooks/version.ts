@@ -2,9 +2,9 @@
 // out makes every commit to main an update for installed users. Change this only when
 // cutting a visible release, and tag it (git tag -a vX.Y.Z).
 export const BRAND = 'claudius-modulus'
-export const VERSION = '1.5.0'
+export const VERSION = '1.6.0'
 
-// 1.5.0 -> v1.5.0
+// 1.6.0 -> v1.6.0
 export function versionLabel(version: string = VERSION): string {
   return `v${version}`
 }
