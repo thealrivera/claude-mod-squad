@@ -36,6 +36,8 @@ export type BandData = {
   isCollapsed: boolean
   work: Work | null
   onToggle: () => void | Promise<void>
+  onCycleModel: () => void | Promise<void>
+  onCycleEffort: () => void | Promise<void>
   limits: Limit[]
   samples: Sample[]
   costUsd: number | null
@@ -132,7 +134,7 @@ export function band(ui: Ui, d: BandData) {
   // them. In a terminal there is no square image, so the five-bar meter and the name stay.
   const sprite = Svg ? (
     <Svg
-      source={iconSvg(level, levelColor(level))}
+      source={iconSvg(level, levelColor(level), d.now)}
       alt={`Pacing level ${level} of 5: ${LEVEL_NAMES[level - 1]}`}
       width={30}
       height={30}
@@ -225,6 +227,18 @@ export function band(ui: Ui, d: BandData) {
     : d.cols - leftCols - 4 - ringCols
   const toggle = (
     <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
+  )
+  // Cycle the model or the effort: a click, or the letter once the band has the focus
+  // (ctrl+x tab). Drawn plain and dim, so the letter shows as the hint.
+  const cyclers = (
+    <Box flexDirection="row" gap={1}>
+      <Button key="model" hotkey="m" plain dimColor onPress={d.onCycleModel}>
+        model
+      </Button>
+      <Button key="effort" hotkey="e" plain dimColor onPress={d.onCycleEffort}>
+        effort
+      </Button>
+    </Box>
   )
 
   const brand = (
@@ -401,7 +415,8 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" justifyContent="flex-end">
+      <Box flexDirection="row" justifyContent="flex-end" gap={2}>
+        {cyclers}
         {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>

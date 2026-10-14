@@ -7,13 +7,16 @@ import type {
   SessionRateLimit,
 } from 'claude-code'
 
-import type { Limit } from '../types'
-import { FIVE_HOUR, pushSample, warnings, worstRank } from './logic'
+import type { Limit, Override } from '../types'
+import { CM_USAGE, nextEffort, nextModel, parseCm, resolveModel } from './cycle'
+import type { Dir } from './cycle'
+import { FIVE_HOUR, prettyModel, pushSample, warnings, worstRank } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
 import { band } from './view'
 
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
 const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
+const override = atom({ plugin: 'claudius-modulus', key: 'override' } as const, null)
 const isUltracode = atom({ plugin: 'claudius-modulus', key: 'isUltracode' } as const, false)
 const isPlan = atom({ plugin: 'claudius-modulus', key: 'isPlan' } as const, false)
 const isCollapsed = atom({ plugin: 'claudius-modulus', key: 'isCollapsed' } as const, false)
@@ -31,13 +34,19 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 200 // one frame of the blinking cursor before the name; also keeps the ring's seconds fresh
+const REDRAW_EVERY_MS = 200 // one frame of the blinking cursor and the level icon; also keeps the ring's seconds fresh
 
 // Highest warning rank already toasted, so each level toasts once.
 let toasted = 0
 const PLAN_KEY = 'claudius-modulus:isPlan'
 const COLLAPSE_KEY = 'claudius-modulus:isCollapsed'
 let lastStep = ''
+
+// The engine's own model and effort, as the last main-loop step named them. An override
+// from the band stands until the person changes one of these themselves (/model, the
+// picker, the effort slider): then the engine's choice wins and the override clears.
+let engineModel: string | null = null
+let engineEffort: string | null = null
 
 async function ingest($: EngineInterface, u: Measured) {
   const now = await $.clock.now()
@@ -67,16 +76,50 @@ async function alertIfWorse($: EngineInterface) {
   toasted = rank
 }
 
+// Sets the model or effort the next request uses, shows it on the chips at once, and says so.
+async function setOverride($: EngineInterface, patch: { model?: string; effort?: string }) {
+  const prev = (await read($, override)) ?? { model: null, effort: null, sawModel: null, sawEffort: null }
+  const next: Override = {
+    model: patch.model ?? prev.model,
+    effort: patch.effort ?? prev.effort,
+    sawModel: engineModel,
+    sawEffort: engineEffort,
+  }
+  await update($, override, () => next)
+  if (patch.model !== undefined) await update($, model, () => patch.model!)
+  if (patch.effort !== undefined) await update($, effort, () => patch.effort!)
+  await alertIfWorse($)
+  const said =
+    patch.model !== undefined ? `Model: ${prettyModel(patch.model)}` : `Effort: ${patch.effort}`
+  $.ui.toast(`${said} from the next request`)
+  return said
+}
+
+async function cycleModel($: EngineInterface, dir: Dir) {
+  return setOverride($, { model: nextModel(await read($, model), dir) })
+}
+
+async function cycleEffort($: EngineInterface, dir: Dir) {
+  return setOverride($, { effort: nextEffort(await read($, effort), dir) })
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await update($, model, () => null)
     const m = await $.session.model()
+    engineModel = m
     await update($, model, () => m)
     const plan = (await $.store.get(PLAN_KEY)) === true
     await update($, isPlan, () => plan)
     const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
     await update($, isCollapsed, () => collapsed)
     await ingest($, await $.session.usage())
+    await $.command.register({
+      name: 'cm',
+      description: 'claudius-modulus: cycle the model or effort for the next request',
+      argumentHint: 'model|effort [next|prev|name] | off',
+      immediate: true,
+    })
     $.clock.every(REDRAW_EVERY_MS, async () => {
       await update($, tick, n => n + 1)
     })
@@ -89,18 +132,69 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // The model and effort the main loop is using right now.
+  // The model and effort the main loop is using right now, with the band's override laid
+  // over the engine's own choice on each request.
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId === undefined) {
-      const key = `${e.model}|${e.effort ?? ''}`
-      if (key !== lastStep) {
-        lastStep = key
-        await update($, model, () => e.model)
-        await update($, effort, () => (e.effort === undefined ? null : String(e.effort)))
-        await alertIfWorse($)
+    if (e.agentId !== undefined) return yield* next(e)
+
+    const stepEffort = e.effort === undefined ? null : String(e.effort)
+    let o = await read($, override)
+    if (o) {
+      const changed =
+        (o.sawModel !== null && e.model !== o.sawModel) ||
+        (o.sawEffort !== null && stepEffort !== o.sawEffort)
+      if (changed) {
+        o = null
+        await update($, override, () => null)
       }
     }
-    return yield* next(e)
+    engineModel = e.model
+    engineEffort = stepEffort
+
+    const usedModel = o?.model ?? e.model
+    const usedEffort = o?.effort ?? stepEffort
+    const key = `${usedModel}|${usedEffort ?? ''}`
+    if (key !== lastStep) {
+      lastStep = key
+      await update($, model, () => usedModel)
+      await update($, effort, () => usedEffort)
+      await alertIfWorse($)
+    }
+    if (!o) return yield* next(e)
+    const rewritten = { ...e }
+    if (o.model !== null) rewritten.model = o.model
+    if (o.effort !== null) rewritten.effort = o.effort as typeof e.effort
+    return yield* next(rewritten)
+  })
+
+  // /cm model next, /cm effort max, /cm off.
+  on('command.run', { command: 'cm' }, async ($, e) => {
+    const req = parseCm(e.args)
+    switch (req.kind) {
+      case 'model': {
+        const said =
+          req.value === 'next' || req.value === 'prev'
+            ? await cycleModel($, req.value)
+            : await setOverride($, { model: resolveModel(req.value) })
+        return { text: said }
+      }
+      case 'effort': {
+        const said =
+          req.value === 'next' || req.value === 'prev'
+            ? await cycleEffort($, req.value)
+            : await setOverride($, { effort: req.value })
+        return { text: said }
+      }
+      case 'off': {
+        await update($, override, () => null)
+        if (engineModel !== null) await update($, model, () => engineModel)
+        await update($, effort, () => engineEffort)
+        lastStep = ''
+        return { text: 'Override cleared: the session model and effort are back.' }
+      }
+      default:
+        return { text: CM_USAGE }
+    }
   })
 
   // Agents, workflow agents and background agents: when each starts and when it finishes.
@@ -139,7 +233,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
 
-    // Read so the countdowns and the second row redraw on each tick.
+    // Read so the countdowns, the icon loop and the second row redraw on each tick.
     await read($, tick)
 
     const collapsed = await read($, isCollapsed)
@@ -154,6 +248,12 @@ export const register: Register = on => {
       onToggle: async () => {
         await update($, isCollapsed, () => !collapsed)
         await $.store.set(COLLAPSE_KEY, !collapsed)
+      },
+      onCycleModel: async () => {
+        await cycleModel($, 'next')
+      },
+      onCycleEffort: async () => {
+        await cycleEffort($, 'next')
       },
       limits: await read($, limits),
       samples: await read($, samples),

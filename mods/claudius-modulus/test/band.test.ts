@@ -20,7 +20,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.4\.1$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.5\.0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -113,7 +113,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.4\.1$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.5\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -275,5 +275,81 @@ test('the cursor after the brand blinks on its own as the clock runs', async ($,
     await ui.redraw()
   }
   expect(seen.size).toBeGreaterThan(1)
+  await ui.unmount()
+})
+
+test('the band cycles the model and effort, and the override rides on the next request', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  const toasts: string[] = []
+  on('ui.toast', (_$, e) => {
+    toasts.push(e.text)
+    return { value: undefined } as never
+  })
+  const seen: { model: string; effort?: unknown }[] = []
+  on('turn.step', async function* (_$, e) {
+    seen.push({ model: e.model, effort: e.effort })
+    return { turnId: 't1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+  })
+  const cm = async (args: string) =>
+    (
+      await $.command.run({
+        command: 'cm',
+        args,
+        origin: { kind: 'composer' },
+        presentation: { isFullscreen: false, columns: 110 },
+      })
+    ).text
+  const step = async (model: string, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max') => {
+    for await (const _chunk of $.turn.step({ turnId: 't1', index: 0, model, effort, messageCount: 1 })) {
+      // drain
+    }
+  }
+
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await step('claude-fable-5-1', 'high')
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Fable 5.1/ })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'model' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'effort' })).toBeDefined()
+
+  // a press on the model button: the chip changes at once, the next request uses it
+  await ui.press({ key: 'model' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
+  expect(toasts.at(-1)).toMatch(/Model: Opus 5.5/)
+  await step('claude-fable-5-1', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
+
+  // the effort button steps the effort; the model override stays
+  await ui.press({ key: 'effort' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /xhigh/ })).toBeDefined()
+  await step('claude-fable-5-1', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'xhigh' })
+
+  // the person changes the model themselves: the engine's choice wins and the override clears
+  await step('claude-sonnet-5-5', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Sonnet 5.5/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /xhigh/ })).toBeUndefined()
+
+  // the slash command: a name, a direction, and off
+  expect(await cm('effort max')).toMatch(/Effort: max/)
+  await step('claude-sonnet-5-5', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'max' })
+  expect(await cm('model prev')).toMatch(/Model: Opus 5.5/)
+  await step('claude-sonnet-5-5', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
+  expect(await cm('off')).toMatch(/cleared/)
+  await step('claude-sonnet-5-5', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
+  expect(await cm('nonsense')).toMatch(/Usage/)
   await ui.unmount()
 })

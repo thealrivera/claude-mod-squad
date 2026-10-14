@@ -21,7 +21,8 @@ import {
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
-import { ICONS, iconSvg } from '../hooks/icons'
+import { FRAMES, FRAME_MS, ICONS, iconFrame, iconSvg } from '../hooks/icons'
+import { EFFORTS, MODELS, modelFamily, nextEffort, nextModel, parseCm, resolveModel } from '../hooks/cycle'
 import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
@@ -191,7 +192,7 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.4.1')
+  expect(versionLabel(VERSION)).toBe('v1.5.0')
 })
 
 test('there are twenty quips, each short, distinct and free of em dashes', () => {
@@ -370,4 +371,65 @@ test('five square icons, 12 by 12, no two alike, drawn as one flat colour', () =
     expect(svg.match(/fill="/g)?.length).toBe(1)
     expect(svg).toContain('<rect')
   }
+})
+
+test('each icon is a loop of 12 by 12 frames that holds still in its box', () => {
+  expect(FRAMES.length).toBe(5)
+  expect(FRAME_MS.length).toBe(5)
+  for (const l of [1, 2, 3, 4, 5] as const) {
+    const frames = FRAMES[l - 1]!
+    expect(frames.length).toBeGreaterThan(1)
+    for (const grid of frames) {
+      expect(grid.length).toBe(12)
+      for (const row of grid) expect(row).toMatch(/^[.X]{12}$/)
+    }
+    // no two frames in a loop alike, and the resting frame is the icon
+    expect(new Set(frames.map(g => g.join('|'))).size).toBeGreaterThan(1)
+    expect(frames[0]).toBe(ICONS[l - 1])
+    // the viewBox is the same for every frame, so the picture does not jitter as it loops
+    const boxes = new Set<string>()
+    for (let i = 0; i < frames.length; i++) {
+      const svg = iconSvg(l, '#d97757', i * FRAME_MS[l - 1]!)
+      boxes.add(svg.match(/viewBox="([^"]+)"/)![1]!)
+    }
+    expect(boxes.size).toBe(1)
+    // the frame follows the clock and wraps
+    expect(iconFrame(l, 0)).toBe(0)
+    expect(iconFrame(l, FRAME_MS[l - 1]!)).toBe(1)
+    expect(iconFrame(l, FRAME_MS[l - 1]! * frames.length)).toBe(0)
+    expect(iconSvg(l, '#d97757')).toBe(iconSvg(l, '#d97757', 0))
+  }
+  // the calm levels loop slower than the hot ones
+  expect(FRAME_MS[0]!).toBeGreaterThan(FRAME_MS[4]!)
+})
+
+test('cycling steps through the models and efforts, wrapping at the ends', () => {
+  expect(modelFamily('claude-opus-5-5[1m]')).toBe('opus')
+  expect(modelFamily('sonnet')).toBe('sonnet')
+  expect(modelFamily(null)).toBe(null)
+  expect(nextModel('claude-fable-5-1', 'next')).toBe('claude-opus-5-5')
+  expect(nextModel('claude-haiku-5-5', 'next')).toBe(MODELS[0]!.id)
+  expect(nextModel('claude-fable-5-1', 'prev')).toBe('claude-haiku-5-5')
+  expect(nextModel(null, 'next')).toBe(MODELS[0]!.id)
+  expect(nextModel('something-else', 'prev')).toBe(MODELS[0]!.id)
+  expect(nextEffort('high', 'next')).toBe('xhigh')
+  expect(nextEffort('max', 'next')).toBe('low')
+  expect(nextEffort('low', 'prev')).toBe('max')
+  expect(nextEffort(null, 'next')).toBe(EFFORTS[0])
+  expect(nextEffort(null, 'prev')).toBe('max')
+  expect(resolveModel('Opus')).toBe('claude-opus-5-5')
+  expect(resolveModel('claude-opus-4-1')).toBe('claude-opus-4-1')
+})
+
+test('/cm reads its words: a kind, a direction or a name, or off', () => {
+  expect(parseCm('')).toEqual({ kind: 'help' })
+  expect(parseCm('model')).toEqual({ kind: 'model', value: 'next' })
+  expect(parseCm('m prev')).toEqual({ kind: 'model', value: 'prev' })
+  expect(parseCm('model Opus')).toEqual({ kind: 'model', value: 'opus' })
+  expect(parseCm('effort')).toEqual({ kind: 'effort', value: 'next' })
+  expect(parseCm('e max')).toEqual({ kind: 'effort', value: 'max' })
+  expect(parseCm('effort huge')).toEqual({ kind: 'help' })
+  expect(parseCm('off')).toEqual({ kind: 'off' })
+  expect(parseCm('reset')).toEqual({ kind: 'off' })
+  expect(parseCm('bogus')).toEqual({ kind: 'help' })
 })
