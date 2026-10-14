@@ -175,6 +175,9 @@ export function iconFrame(level: 1 | 2 | 3 | 4 | 5, now: number): number {
   return Math.floor(now / FRAME_MS[level - 1]!) % frames.length
 }
 
+// How far the glyph sits to the right of its box's middle, in grid units.
+export const ICON_NUDGE = 1
+
 // The centre of a grid's lit pixels, in grid units: the middle of their bounding box.
 export function litCentre(grid: Grid): [number, number] {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -223,9 +226,11 @@ export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): 
       }
     })
   }
-  const side = half * 2
-  const vx = cx - half
-  const vy = cy - half
+  // The box is centred ICON_NUDGE to the left of the glyph, so the glyph sits that far right.
+  const reach = half + ICON_NUDGE
+  const side = reach * 2
+  const vx = cx - ICON_NUDGE - reach
+  const vy = cy - reach
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${side} ${side}" shape-rendering="crispEdges">` +
     `<g fill="${color}">${rects.join('')}</g></svg>`

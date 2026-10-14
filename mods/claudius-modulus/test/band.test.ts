@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { FRAMES, iconSvg } from '../hooks/icons'
+import { FRAMES, ICON_NUDGE, iconSvg } from '../hooks/icons'
 import { onBandButton } from '../hooks/view'
 
 const PROPS = {
@@ -387,7 +387,7 @@ for (const level of [1, 2, 3, 4, 5] as const) {
     // the rects are the resting frame's lit pixels, so their bounds are the glyph's own
     expect(rest.length).toBe(12)
     const near = (n: number) => Math.round(n * 1000) / 1000
-    expect(near(vx + side / 2)).toBe(near((minX + maxX) / 2))
+    expect(near(vx + side / 2)).toBe(near((minX + maxX) / 2 - ICON_NUDGE))
     expect(near(vy + side / 2)).toBe(near((minY + maxY) / 2))
   })
 }
