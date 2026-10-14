@@ -14,6 +14,7 @@ declare module 'claude-code' {
       isUltracode: boolean
       isPlan: boolean
       isCollapsed: boolean
+      bandFocus: boolean
       agents: AgentRec[]
       limits: Limit[]
       samples: Sample[]

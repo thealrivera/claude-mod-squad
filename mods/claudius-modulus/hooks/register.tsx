@@ -12,7 +12,7 @@ import { CM_USAGE, nextEffort, nextModel, parseCm, resolveModel } from './cycle'
 import type { Dir } from './cycle'
 import { FIVE_HOUR, prettyModel, pushSample, warnings, worstRank } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
-import { band } from './view'
+import { band, onBandButton } from './view'
 
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
 const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
@@ -26,6 +26,7 @@ const samples = atom({ plugin: 'claudius-modulus', key: 'samples' } as const, []
 const costUsd = atom({ plugin: 'claudius-modulus', key: 'costUsd' } as const, null)
 const ctxPercent = atom({ plugin: 'claudius-modulus', key: 'ctxPercent' } as const, null)
 const tick = atom({ plugin: 'claudius-modulus', key: 'tick' } as const, 0)
+const bandFocus = atom({ plugin: 'claudius-modulus', key: 'bandFocus' } as const, false)
 
 type Measured = {
   context: SessionContextUsage
@@ -230,6 +231,12 @@ export const register: Register = on => {
     return next(e)
   }).catch(($, e, next) => next(e))
 
+  // The keyboard ring moving over the band: lit while it sits on one of the band's buttons.
+  on('ui.focus', { component: 'AbovePrompt' }, async ($, e, next) => {
+    await update($, bandFocus, () => onBandButton(e))
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
 
@@ -244,6 +251,7 @@ export const register: Register = on => {
       isUltracode: await read($, isUltracode),
       isPlan: await read($, isPlan),
       isCollapsed: collapsed,
+      focused: await read($, bandFocus),
       work: summarize(await read($, agents), await $.clock.now()),
       onToggle: async () => {
         await update($, isCollapsed, () => !collapsed)

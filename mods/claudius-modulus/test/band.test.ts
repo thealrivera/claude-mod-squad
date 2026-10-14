@@ -1,5 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 
+import { FRAMES, iconSvg } from '../hooks/icons'
+import { onBandButton } from '../hooks/view'
+
 const PROPS = {
   hasSurvey: false,
   isWorking: false,
@@ -278,6 +281,21 @@ test('the cursor after the brand blinks on its own as the clock runs', async ($,
   await ui.unmount()
 })
 
+test('the expanded band draws the top-left rule in the cursor\'s colours', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /▔/ })).toBeDefined()
+  await ui.unmount()
+})
+
 test('the band cycles the model and effort, and the override rides on the next request', async ($, on) => {
   mock.clock(on, { now: T0 })
   mock.store(on)
@@ -352,4 +370,33 @@ test('the band cycles the model and effort, and the override rides on the next r
   expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
   expect(await cm('nonsense')).toMatch(/Usage/)
   await ui.unmount()
+})
+
+// The level icon sits in the middle of its box: the resting frame's lit pixels are centred
+// in the viewBox, whatever the shape (the bolt leans).
+for (const level of [1, 2, 3, 4, 5] as const) {
+  test(`the level ${level} icon is centred in its box`, () => {
+    const svg = iconSvg(level, '#000')
+    const [vx, vy, side] = svg.match(/viewBox="([^"]+)"/)![1]!.split(' ').map(Number) as [number, number, number]
+    const rects = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"\/>/g)]
+    const rest = FRAMES[level - 1]![0]!
+    const minX = Math.min(...rects.map(r => Number(r[1])))
+    const maxX = Math.max(...rects.map(r => Number(r[1]) + Number(r[3])))
+    const minY = Math.min(...rects.map(r => Number(r[2])))
+    const maxY = Math.max(...rects.map(r => Number(r[2]) + Number(r[4])))
+    // the rects are the resting frame's lit pixels, so their bounds are the glyph's own
+    expect(rest.length).toBe(12)
+    const near = (n: number) => Math.round(n * 1000) / 1000
+    expect(near(vx + side / 2)).toBe(near((minX + maxX) / 2))
+    expect(near(vy + side / 2)).toBe(near((minY + maxY) / 2))
+  })
+}
+
+test('only the band\'s own buttons light the band on the keyboard focus', () => {
+  expect(onBandButton({ element: 'model' })).toBe(true)
+  expect(onBandButton({ element: 'effort', plugin: 'claudius-modulus' })).toBe(true)
+  expect(onBandButton({ element: 'toggle' })).toBe(true)
+  expect(onBandButton({})).toBe(false)
+  expect(onBandButton({ element: 'something-else' })).toBe(false)
+  expect(onBandButton({ element: 'model', plugin: 'other-mod' })).toBe(false)
 })

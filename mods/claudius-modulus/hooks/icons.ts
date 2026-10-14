@@ -175,6 +175,21 @@ export function iconFrame(level: 1 | 2 | 3 | 4 | 5, now: number): number {
   return Math.floor(now / FRAME_MS[level - 1]!) % frames.length
 }
 
+// The centre of a grid's lit pixels, in grid units: the middle of their bounding box.
+export function litCentre(grid: Grid): [number, number] {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  grid.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] !== 'X') continue
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+    }
+  })
+  return [(minX + maxX + 1) / 2, (minY + maxY + 1) / 2]
+}
+
 // A grid as an SVG: each run of lit pixels in a row is one rectangle, so the image stays
 // small and the pixels stay hard-edged. `now` picks the frame; left out, the resting one.
 export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): string {
@@ -194,24 +209,23 @@ export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): 
       x = end
     }
   })
-  // Crop the viewBox to the lit pixels of every frame in the loop, then make it square and
-  // centre the glyph in it, so each icon sits in the middle of its box whatever its own
-  // shape is (the bolt leans left, say) and the picture holds still while the loop runs.
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  // Centre the glyph on its resting frame, so it sits in the middle of its box whatever its
+  // own shape is (the bolt leans, say), and the picture holds still while the loop runs.
+  // The loop's sparks can reach past the resting frame, so the box is made wide enough to
+  // hold every frame, measured out from that same centre.
+  const [cx, cy] = litCentre(frames[0]!)
+  let half = 0
   for (const frame of frames) {
     frame.forEach((row, y) => {
       for (let x = 0; x < row.length; x++) {
         if (row[x] !== 'X') continue
-        minX = Math.min(minX, x)
-        maxX = Math.max(maxX, x)
-        minY = Math.min(minY, y)
-        maxY = Math.max(maxY, y)
+        half = Math.max(half, Math.abs(x + 0.5 - cx), Math.abs(y + 0.5 - cy))
       }
     })
   }
-  const side = Math.max(maxX - minX + 1, maxY - minY + 1)
-  const vx = minX + (maxX - minX + 1) / 2 - side / 2
-  const vy = minY + (maxY - minY + 1) / 2 - side / 2
+  const side = half * 2
+  const vx = cx - half
+  const vy = cy - half
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${side} ${side}" shape-rendering="crispEdges">` +
     `<g fill="${color}">${rects.join('')}</g></svg>`

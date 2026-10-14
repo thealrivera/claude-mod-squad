@@ -34,6 +34,7 @@ export type BandData = {
   isUltracode: boolean
   isPlan: boolean
   isCollapsed: boolean
+  focused: boolean
   work: Work | null
   onToggle: () => void | Promise<void>
   onCycleModel: () => void | Promise<void>
@@ -52,6 +53,24 @@ const GOOD = PAL.mint
 const WATCH = PAL.amber
 const BAD = PAL.red
 const NEUTRAL = '#8fb4ff'
+
+// The cursor's own colours: the top-left rule breathes between them, as the cursor does.
+const CURSOR_DIM = '#2b3050'
+// The band's focus colour, bright orange, and its dim end for the breathing rule.
+const FOCUS_ORANGE = '#ff7a00'
+const FOCUS_DIM = '#7a3b00'
+
+// The band's own buttons, by the key each one is drawn under.
+const BAND_KEYS = ['toggle', 'model', 'effort']
+
+// True when the keyboard ring sits on one of the band's buttons (ctrl+x tab, then the arrows).
+export function onBandButton(e: { element?: string; plugin?: string }): boolean {
+  return (
+    e.element !== undefined &&
+    BAND_KEYS.includes(e.element) &&
+    (e.plugin === undefined || e.plugin === 'claudius-modulus')
+  )
+}
 
 const STATUS: Record<Forecast['state'], string> = {
   none: NEUTRAL,
@@ -225,6 +244,21 @@ export function band(ui: Ui, d: BandData) {
   const blockCols = d.isCollapsed
     ? d.cols - 2 - chipsWidth - 2 - 5
     : d.cols - leftCols - 4 - ringCols
+  // The top border of the left block: a rule in the cursor's colours, fading from left to
+  // right, its brightness breathing with the cursor. Orange while the band has the focus.
+  const ruleGlow = cursorGlow(d.now)
+  const ruleStops = d.focused ? [FOCUS_DIM, FOCUS_ORANGE] : [CURSOR_DIM, PAL.violet]
+  const ruleCols = Math.max(1, leftCols)
+  const rule = (
+    <Text wrap="truncate">
+      {Array.from({ length: ruleCols }, (_, i) => (
+        <Text key={String(i)} color={ramp(ruleStops, ruleGlow * (0.3 + (0.7 * i) / Math.max(1, ruleCols - 1)))}>
+          ▔
+        </Text>
+      ))}
+    </Text>
+  )
+
   const toggle = (
     <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
   )
@@ -382,11 +416,17 @@ export function band(ui: Ui, d: BandData) {
       </Text>
     ) : (
       <Text wrap="truncate">
-        {[...BRAND].map((c, i, a) => (
-          <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
-            {c}
-          </Text>
-        ))}
+        {[...BRAND].map((c, i, a) =>
+          d.focused ? (
+            <Text key={String(i)} bold color={FOCUS_ORANGE}>
+              {c}
+            </Text>
+          ) : (
+            <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+              {c}
+            </Text>
+          ),
+        )}
         <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
         <Text color={PAL.mute} dimColor>
           {' - '}
@@ -415,9 +455,12 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" justifyContent="flex-end" gap={2}>
-        {cyclers}
-        {toggle}
+      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+        <Box flexShrink={1}>{rule}</Box>
+        <Box flexDirection="row" gap={2}>
+          {cyclers}
+          {toggle}
+        </Box>
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexDirection="row" gap={2} alignSelf="flex-start" alignItems="center">
