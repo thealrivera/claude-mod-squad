@@ -1,5 +1,9 @@
 import { expect, mock, test } from 'claude-code/testing'
 
+import { FRAMES, ICON_NUDGE, iconSvg } from '../hooks/icons'
+import { onBandButton } from '../hooks/view'
+import { countDevServers } from '../hooks/servers'
+
 const PROPS = {
   hasSurvey: false,
   isWorking: false,
@@ -20,7 +24,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.5\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.6\.0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -113,7 +117,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.5\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.6\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -278,6 +282,21 @@ test('the cursor after the brand blinks on its own as the clock runs', async ($,
   await ui.unmount()
 })
 
+test('the expanded band draws the top-left rule in the cursor\'s colours', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /▔/ })).toBeDefined()
+  await ui.unmount()
+})
+
 test('the band cycles the model and effort, and the override rides on the next request', async ($, on) => {
   mock.clock(on, { now: T0 })
   mock.store(on)
@@ -315,11 +334,11 @@ test('the band cycles the model and effort, and the override rides on the next r
   await step('claude-fable-5-1', 'high')
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /Fable 5.1/ })).toBeDefined()
-  expect(await ui.find({ type: 'Button', key: 'model' })).toBeDefined()
-  expect(await ui.find({ type: 'Button', key: 'effort' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'modelChip' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'effortChip' })).toBeDefined()
 
   // a press on the model button: the chip changes at once, the next request uses it
-  await ui.press({ key: 'model' })
+  await ui.press({ key: 'modelChip' })
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
   expect(toasts.at(-1)).toMatch(/Model: Opus 5.5/)
@@ -327,11 +346,26 @@ test('the band cycles the model and effort, and the override rides on the next r
   expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
 
   // the effort button steps the effort; the model override stays
-  await ui.press({ key: 'effort' })
+  await ui.press({ key: 'effortChip' })
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /xhigh/ })).toBeDefined()
   await step('claude-fable-5-1', 'high')
   expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'xhigh' })
+
+  // the chips cycle too
+  await ui.press({ key: 'modelChip' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Sonnet 5.5/ })).toBeDefined()
+  await ui.press({ key: 'effortChip' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /max/ })).toBeDefined()
+  await ui.press({ key: 'modelChip' })
+  await ui.press({ key: 'modelChip' })
+  await ui.press({ key: 'modelChip' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
+  await step('claude-fable-5-1', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
 
   // the person changes the model themselves: the engine's choice wins and the override clears
   await step('claude-sonnet-5-5', 'high')
@@ -352,4 +386,42 @@ test('the band cycles the model and effort, and the override rides on the next r
   expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
   expect(await cm('nonsense')).toMatch(/Usage/)
   await ui.unmount()
+})
+
+// The level icon sits in the middle of its box: the resting frame's lit pixels are centred
+// in the viewBox, whatever the shape (the bolt leans).
+for (const level of [1, 2, 3, 4, 5] as const) {
+  test(`the level ${level} icon is centred in its box`, () => {
+    const svg = iconSvg(level, '#000')
+    const [vx, vy, side] = svg.match(/viewBox="([^"]+)"/)![1]!.split(' ').map(Number) as [number, number, number]
+    const rects = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"\/>/g)]
+    const rest = FRAMES[level - 1]![0]!
+    const minX = Math.min(...rects.map(r => Number(r[1])))
+    const maxX = Math.max(...rects.map(r => Number(r[1]) + Number(r[3])))
+    const minY = Math.min(...rects.map(r => Number(r[2])))
+    const maxY = Math.max(...rects.map(r => Number(r[2]) + Number(r[4])))
+    // the rects are the resting frame's lit pixels, so their bounds are the glyph's own
+    expect(rest.length).toBe(12)
+    const near = (n: number) => Math.round(n * 1000) / 1000
+    expect(near(vx + side / 2)).toBe(near((minX + maxX) / 2 - ICON_NUDGE))
+    expect(near(vy + side / 2)).toBe(near((minY + maxY) / 2))
+  })
+}
+
+test('only the band\'s own buttons light the band on the keyboard focus', () => {
+  expect(onBandButton({ element: 'modelChip' })).toBe(true)
+  expect(onBandButton({ element: 'effortChip', plugin: 'claudius-modulus' })).toBe(true)
+  expect(onBandButton({ element: 'toggle' })).toBe(true)
+  expect(onBandButton({})).toBe(false)
+  expect(onBandButton({ element: 'something-else' })).toBe(false)
+  expect(onBandButton({ element: 'modelChip', plugin: 'other-mod' })).toBe(false)
+})
+
+test('the dev servers counted from lsof are the processes that run python, node or the like', () => {
+  const out = [
+    'p6119', 'cPython', 'p93234', 'cnode', 'p93234', 'cnode',
+    'p500', 'cGoogle Chrome', 'p501', 'cControlCe', 'p502', 'cSomething',
+  ].join('\n')
+  expect(countDevServers(out)).toBe(2)
+  expect(countDevServers('')).toBe(0)
 })
