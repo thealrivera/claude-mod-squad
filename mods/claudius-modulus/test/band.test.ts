@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { FRAMES, ICON_NUDGE, iconSvg } from '../hooks/icons'
 import { onBandButton } from '../hooks/view'
+import { countDevServers } from '../hooks/servers'
 
 const PROPS = {
   hasSurvey: false,
@@ -333,11 +334,11 @@ test('the band cycles the model and effort, and the override rides on the next r
   await step('claude-fable-5-1', 'high')
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /Fable 5.1/ })).toBeDefined()
-  expect(await ui.find({ type: 'Button', key: 'model' })).toBeDefined()
-  expect(await ui.find({ type: 'Button', key: 'effort' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'modelChip' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'effortChip' })).toBeDefined()
 
   // a press on the model button: the chip changes at once, the next request uses it
-  await ui.press({ key: 'model' })
+  await ui.press({ key: 'modelChip' })
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
   expect(toasts.at(-1)).toMatch(/Model: Opus 5.5/)
@@ -345,11 +346,26 @@ test('the band cycles the model and effort, and the override rides on the next r
   expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
 
   // the effort button steps the effort; the model override stays
-  await ui.press({ key: 'effort' })
+  await ui.press({ key: 'effortChip' })
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /xhigh/ })).toBeDefined()
   await step('claude-fable-5-1', 'high')
   expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'xhigh' })
+
+  // the chips cycle too
+  await ui.press({ key: 'modelChip' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Sonnet 5.5/ })).toBeDefined()
+  await ui.press({ key: 'effortChip' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /max/ })).toBeDefined()
+  await ui.press({ key: 'modelChip' })
+  await ui.press({ key: 'modelChip' })
+  await ui.press({ key: 'modelChip' })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /Opus 5.5/ })).toBeDefined()
+  await step('claude-fable-5-1', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
 
   // the person changes the model themselves: the engine's choice wins and the override clears
   await step('claude-sonnet-5-5', 'high')
@@ -393,10 +409,19 @@ for (const level of [1, 2, 3, 4, 5] as const) {
 }
 
 test('only the band\'s own buttons light the band on the keyboard focus', () => {
-  expect(onBandButton({ element: 'model' })).toBe(true)
-  expect(onBandButton({ element: 'effort', plugin: 'claudius-modulus' })).toBe(true)
+  expect(onBandButton({ element: 'modelChip' })).toBe(true)
+  expect(onBandButton({ element: 'effortChip', plugin: 'claudius-modulus' })).toBe(true)
   expect(onBandButton({ element: 'toggle' })).toBe(true)
   expect(onBandButton({})).toBe(false)
   expect(onBandButton({ element: 'something-else' })).toBe(false)
-  expect(onBandButton({ element: 'model', plugin: 'other-mod' })).toBe(false)
+  expect(onBandButton({ element: 'modelChip', plugin: 'other-mod' })).toBe(false)
+})
+
+test('the dev servers counted from lsof are the processes that run python, node or the like', () => {
+  const out = [
+    'p6119', 'cPython', 'p93234', 'cnode', 'p93234', 'cnode',
+    'p500', 'cGoogle Chrome', 'p501', 'cControlCe', 'p502', 'cSomething',
+  ].join('\n')
+  expect(countDevServers(out)).toBe(2)
+  expect(countDevServers('')).toBe(0)
 })

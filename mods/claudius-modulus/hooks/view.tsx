@@ -22,6 +22,7 @@ import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
 import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
 import { iconSvg } from './icons'
+import { modelFamily } from './cycle'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
 import { BRAND, versionLabel } from './version'
@@ -35,6 +36,7 @@ export type BandData = {
   isPlan: boolean
   isCollapsed: boolean
   focused: boolean
+  servers: number | null
   work: Work | null
   onToggle: () => void | Promise<void>
   onCycleModel: () => void | Promise<void>
@@ -61,7 +63,7 @@ const FOCUS_ORANGE = '#ff7a00'
 const FOCUS_DIM = '#7a3b00'
 
 // The band's own buttons, by the key each one is drawn under.
-const BAND_KEYS = ['toggle', 'model', 'effort']
+const BAND_KEYS = ['toggle', 'modelChip', 'effortChip']
 
 // True when the keyboard ring sits on one of the band's buttons (ctrl+x tab, then the arrows).
 export function onBandButton(e: { element?: string; plugin?: string }): boolean {
@@ -89,20 +91,21 @@ const WARN_COLOR: Record<WarnKind, string> = {
   ultracode: PAL.magenta,
 }
 
-const EFFORT_GRADIENT: Record<string, string[]> = {
-  low: ['#475569', '#64748b'],
-  medium: ['#3b5bdb', PAL.blue],
-  high: [PAL.blue, PAL.cyan],
-  xhigh: [PAL.amber, PAL.orange],
-  max: [PAL.orange, PAL.red],
+// Background shades, lightest at the lowest step and darkest at the highest: haiku to fable
+// for the model (by capability), low to max for the effort. Each runs as a slight gradient.
+const MODEL_GRADIENT: Record<string, { stops: string[]; glyph: string }> = {
+  haiku: { stops: ['#b3a7ff', '#9d8dff'], glyph: '○' },
+  sonnet: { stops: ['#9d8dff', '#8a74ff'], glyph: '◇' },
+  opus: { stops: ['#7d66ff', '#6a50ec'], glyph: '◆' },
+  fable: { stops: ['#5f45e0', '#4a31c4'], glyph: '✦' },
 }
 
-const EFFORT_GLYPH: Record<string, string> = {
-  low: '◔',
-  medium: '◑',
-  high: '◕',
-  xhigh: '◉',
-  max: '⬤',
+const EFFORT_GRADIENT: Record<string, { stops: string[]; glyph: string; ink: string }> = {
+  low: { stops: ['#cbd5e1', '#b4c0d0'], glyph: '▂', ink: '#0f172a' },
+  medium: { stops: ['#94a3b8', '#7f8ea5'], glyph: '▃', ink: '#0f172a' },
+  high: { stops: ['#64748b', '#536176'], glyph: '▅', ink: PAL.ink },
+  xhigh: { stops: ['#475569', '#3b4a5f'], glyph: '▇', ink: PAL.ink },
+  max: { stops: ['#334155', '#1e293b'], glyph: '█', ink: '#e2e8f0' },
 }
 
 // The label column. Every row that sits against the bar starts after it, so the
@@ -222,15 +225,24 @@ export function band(ui: Ui, d: BandData) {
 
   // Collapsed, the chips are short ("S 5.5", "Low") and drop their symbols.
   const model = d.isCollapsed ? shortModel(d.model) : prettyModel(d.model)
+  // Each chip is a button too: a click cycles the model or the effort.
+  const modelShade = MODEL_GRADIENT[modelFamily(d.model) ?? ''] ?? MODEL_GRADIENT.opus!
   const chips: RenderElement[] = [
-    chip(d.isCollapsed ? model : `◆ ${model}`, [PAL.violet, PAL.blue], '#ffffff'),
+    <Button key="modelChip" plain onPress={d.onCycleModel}>
+      {chip(
+        d.isCollapsed ? model : `${modelShade.glyph} ${model}`,
+        modelShade.stops,
+        '#ffffff',
+      )}
+    </Button>,
   ]
   const effortText = d.effort ? (d.isCollapsed ? shortEffort(d.effort) : d.effort) : ''
   if (d.effort) {
-    const stops = EFFORT_GRADIENT[d.effort] ?? EFFORT_GRADIENT.medium!
-    const glyph = EFFORT_GLYPH[d.effort] ?? '◑'
+    const shade = EFFORT_GRADIENT[d.effort] ?? EFFORT_GRADIENT.medium!
     chips.push(
-      chip(d.isCollapsed ? effortText : `${glyph} ${effortText}`, stops, d.effort === 'low' ? '#e2e8f0' : PAL.ink),
+      <Button key="effortChip" plain onPress={d.onCycleEffort}>
+        {chip(d.isCollapsed ? effortText : `${shade.glyph} ${effortText}`, shade.stops, shade.ink)}
+      </Button>,
     )
   }
   // Text columns the chips take, so the session block beside them gets the rest.
@@ -262,21 +274,13 @@ export function band(ui: Ui, d: BandData) {
   const toggle = (
     <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
   )
-  // Cycle the model or the effort: a click, or the letter once the band has the focus
-  // (ctrl+x tab). Drawn plain and dim, so the letter shows as the hint.
-  const cyclers = (
-    <Box flexDirection="row" gap={1}>
-      <Button key="model" hotkey="m" plain dimColor onPress={d.onCycleModel}>
-        model
-      </Button>
-      <Button key="effort" hotkey="e" plain dimColor onPress={d.onCycleEffort}>
-        effort
-      </Button>
-    </Box>
-  )
-
   const brand = (
-    <Box flexDirection="column" alignItems="flex-end">
+    <Box flexDirection="row" gap={2}>
+      {d.servers !== null ? (
+        <Text color={PAL.mute} dimColor>
+          {d.servers} dev {d.servers === 1 ? 'server' : 'servers'}
+        </Text>
+      ) : null}
       <Text color={PAL.mute} dimColor>
         {versionLabel()}
       </Text>
@@ -457,10 +461,7 @@ export function band(ui: Ui, d: BandData) {
     <Box flexDirection="column">
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexShrink={1}>{rule}</Box>
-        <Box flexDirection="row" gap={2}>
-          {cyclers}
-          {toggle}
-        </Box>
+        {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexDirection="row" gap={2} alignSelf="flex-start" alignItems="center">

@@ -13,6 +13,7 @@ import type { Dir } from './cycle'
 import { FIVE_HOUR, prettyModel, pushSample, warnings, worstRank } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
 import { band, onBandButton } from './view'
+import { LSOF_ARGS, SERVERS_EVERY_MS, countDevServers } from './servers'
 
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
 const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
@@ -27,6 +28,7 @@ const costUsd = atom({ plugin: 'claudius-modulus', key: 'costUsd' } as const, nu
 const ctxPercent = atom({ plugin: 'claudius-modulus', key: 'ctxPercent' } as const, null)
 const tick = atom({ plugin: 'claudius-modulus', key: 'tick' } as const, 0)
 const bandFocus = atom({ plugin: 'claudius-modulus', key: 'bandFocus' } as const, false)
+const servers = atom({ plugin: 'claudius-modulus', key: 'servers' } as const, null)
 
 type Measured = {
   context: SessionContextUsage
@@ -66,6 +68,16 @@ async function ingest($: EngineInterface, u: Measured) {
   await update($, ctxPercent, () => u.context.percent ?? null)
   const five = next.find(l => l.kind === FIVE_HOUR)
   if (five) await update($, samples, prev => pushSample(prev, now, five))
+}
+
+// The local dev servers listening now, or null when lsof cannot say.
+async function countServers($: EngineInterface): Promise<number | null> {
+  try {
+    const { stdout } = await $.process.run([...LSOF_ARGS], { timeoutMs: 5000 })
+    return countDevServers(stdout)
+  } catch {
+    return null
+  }
 }
 
 async function alertIfWorse($: EngineInterface) {
@@ -124,6 +136,11 @@ export const register: Register = on => {
     $.clock.every(REDRAW_EVERY_MS, async () => {
       await update($, tick, n => n + 1)
     })
+    $.clock.every(SERVERS_EVERY_MS, async () => {
+      const n = await countServers($)
+      await update($, servers, () => n)
+    })
+    void countServers($).then(n => update($, servers, () => n))
     return next(e)
   })
 
@@ -252,6 +269,7 @@ export const register: Register = on => {
       isPlan: await read($, isPlan),
       isCollapsed: collapsed,
       focused: await read($, bandFocus),
+      servers: await read($, servers),
       work: summarize(await read($, agents), await $.clock.now()),
       onToggle: async () => {
         await update($, isCollapsed, () => !collapsed)
