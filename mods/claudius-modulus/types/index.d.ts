@@ -4,6 +4,8 @@ export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 // The band's choice of model and effort for the next request, and the engine's own values
 // when it was made (null when unknown), so a change the person makes clears it.
 export type Override = { model: string | null; effort: string | null; sawModel: string | null; sawEffort: string | null }
+// The engine's own model and effort, as the last main-loop step named them.
+export type Engine = { model: string | null; effort: string | null }
 
 declare module 'claude-code' {
   interface PluginState {
@@ -11,9 +13,15 @@ declare module 'claude-code' {
       model: string | null
       effort: string | null
       override: Override | null
+      engine: Engine
+      toasted: number
+      simpleRun: number
       isUltracode: boolean
       isPlan: boolean
       isCollapsed: boolean
+      isQuiet: boolean
+      servers: { count: number; port: number | null } | null
+      focusedAt: number
       agents: AgentRec[]
       limits: Limit[]
       samples: Sample[]

@@ -36,13 +36,22 @@ export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
 }
 
 // The blinking cursor after the brand: an underscore that fades in and out on a cosine,
-// so it eases like a calm blink rather than snapping on and off.
+// so it eases like a calm blink rather than snapping on and off. One step a second, the
+// band's own redraw, so the cursor never makes the band redraw faster.
 export const CURSOR = '_'
-export const CURSOR_MS = 200
-const CURSOR_FRAMES = 6
+export const CURSOR_MS = 1000
+const CURSOR_FRAMES = 4
 
 // 1 = fully lit, 0 = faded into the background.
 export function cursorGlow(now: number): number {
   const i = Math.floor(now / CURSOR_MS) % CURSOR_FRAMES
   return (1 + Math.cos((2 * Math.PI * i) / CURSOR_FRAMES)) / 2
+}
+
+// The rule's breathing: one slow swell and fade, eight seconds a breath. It is drawn on the
+// band's once-a-second redraw, so a breath takes eight gentle steps.
+export const RULE_BREATH_MS = 8000
+export function ruleGlow(now: number): number {
+  const phase = (now % RULE_BREATH_MS) / RULE_BREATH_MS
+  return 0.15 + 0.85 * ((1 - Math.cos(2 * Math.PI * phase)) / 2)
 }

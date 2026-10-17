@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claudius Modulus</title>
+<meta name="description" content="A live band above the Claude Code prompt: model and effort chips you click to change, 5-hour usage with a run-out forecast, and zero menu digging.">
+<meta property="og:title" content="Claudius Modulus: your Claude Code usage in one glance">
+<meta property="og:description" content="Click to change model or effort. See when you will run out before you do.">
+<meta property="og:image" content="promo/social.png">
+<link rel="stylesheet" href="assets/band.css">
+<style>
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+.glow{position:absolute;inset:0 0 auto 0;height:720px;background:radial-gradient(800px 420px at 20% 0%,#2a1f7a55,transparent 70%),radial-gradient(600px 400px at 90% 10%,#1b3a8a40,transparent 70%);pointer-events:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px;position:relative}
+nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0}
+nav .logo{font-family:var(--mono);font-weight:700;color:var(--violet2)}
+nav a{color:var(--mute);text-decoration:none;margin-left:22px;font-size:.95rem}
+nav a:hover{color:var(--ink)}
+.hero{padding:70px 0 40px;text-align:center}
+.eyebrow{font-family:var(--mono);color:var(--violet2);font-size:.85rem;letter-spacing:.08em}
+h1{font-size:clamp(2.4rem,6.4vw,4.6rem);line-height:1.04;letter-spacing:-.035em;font-weight:800;margin:18px auto 22px;max-width:15em}
+h1 em,h2 em{font-style:normal;background:linear-gradient(90deg,#9d8dff,#6ee7a8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--mute);font-size:clamp(1.05rem,2.2vw,1.3rem);max-width:38em;margin:0 auto 32px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.note{color:var(--dim);font-size:.85rem;margin-top:14px}
+.demo{margin:56px auto 0;font-size:clamp(.62rem,1.55vw,1rem)}
+.demo .band{text-align:left}
+section{padding:84px 0}
+h2{font-size:clamp(1.8rem,4vw,2.7rem);letter-spacing:-.03em;line-height:1.1;margin-bottom:14px}
+.kick{font-family:var(--mono);color:var(--violet2);font-size:.8rem;letter-spacing:.08em;margin-bottom:12px}
+.sec-lead{color:var(--mute);max-width:40em;font-size:1.1rem;margin-bottom:40px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px}
+.card.good{border-color:#4a3fb0;background:linear-gradient(180deg,#1a1745,#141830)}
+.card h3{font-family:var(--mono);font-size:.8rem;letter-spacing:.08em;color:var(--mute);margin-bottom:12px;font-weight:600}
+.card.good h3{color:var(--violet2)}
+.row{display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row b{font-family:var(--mono);font-size:1.4rem}
+.bad .row b{color:var(--red)}.good .row b{color:var(--lime)}
+.row small{display:block;color:var(--dim);font-size:.8rem}
+.calc{margin-top:28px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:28px}
+.calc .ctl{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.calc label{display:block;font-size:.9rem;color:var(--mute)}
+.calc label output{color:var(--ink);font-family:var(--mono);font-weight:700;float:right}
+.calc input[type=range]{width:100%;accent-color:#7d66ff;margin-top:10px}
+.result{margin-top:26px;padding-top:22px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:30px;align-items:baseline}
+.result .n{font-size:clamp(2.6rem,7vw,4rem);font-weight:800;letter-spacing:-.04em;line-height:1}
+.result .n em{font-style:normal;background:linear-gradient(90deg,#9d8dff,#6ee7a8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.result span{color:var(--mute)}
+.fine{color:var(--dim);font-size:.82rem;margin-top:16px}
+.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.feat{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;transition:border-color .2s,transform .2s}
+.feat:hover{border-color:#4a3fb0;transform:translateY(-3px)}
+.feat .ic{font-size:1.5rem;margin-bottom:10px;color:var(--violet2);font-family:var(--mono)}
+.feat h3{font-size:1.1rem;margin-bottom:6px}
+.feat p{color:var(--mute);font-size:.95rem}
+.steps{counter-reset:s;display:grid;gap:14px}
+.step{display:flex;gap:16px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.step:before{counter-increment:s;content:counter(s);flex:none;width:30px;height:30px;border-radius:50%;background:var(--violet);color:#0f0a33;font-weight:800;display:grid;place-items:center}
+.cmd{font-family:var(--mono);background:#080a14;border:1px solid var(--line);border-radius:12px;padding:16px 18px;color:#cfd5ff;font-size:.92rem;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-top:10px}
+.cmd button{flex:none;background:#1c2142;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-family:var(--sans);cursor:pointer}
+.cmd button:hover{border-color:var(--violet)}
+.letter{border:1px solid var(--line);border-left:4px solid var(--violet);border-radius:14px;background:var(--panel);padding:28px 30px}
+.letter p{color:var(--mute);margin-top:10px}.letter p b{color:var(--ink)}
+.faq details{border-top:1px solid var(--line);padding:16px 0}
+.faq summary{cursor:pointer;font-weight:600;list-style:none}
+.faq summary:after{content:"+";float:right;color:var(--violet2)}
+.faq details[open] summary:after{content:"−"}
+.faq p{color:var(--mute);margin-top:8px}
+.final{text-align:center;padding:90px 0}
+footer{border-top:1px solid var(--line);padding:28px 0;color:var(--dim);font-size:.88rem;text-align:center}
+footer a{color:var(--mute)}
+@media(max-width:820px){.two,.feats,.calc .ctl{grid-template-columns:1fr}.hero{padding-top:40px}nav a{display:none}nav a.keep{display:inline}}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="wrap">
+<nav><span class="logo">claudius-modulus_</span><div><a href="#clicks">Clicks saved</a><a href="#features">Features</a><a href="#faq">FAQ</a><a class="keep" href="https://github.com/thealrivera/claudius-modulus">GitHub</a></div></nav>
+
+<header class="hero">
+  <div class="eyebrow">A MOD FOR CLAUDE CODE</div>
+  <h1>Your usage in <em>one glance</em>. Your model in <em>one click</em>.</h1>
+  <p class="lead">A live band above your prompt shows what is answering, how hard it is thinking, and when you will run out of your 5-hour window. Click a chip to change it. No menus.</p>
+  <div class="cta"><a class="btn p" href="#install">Install in one paste</a><a class="btn s" href="https://github.com/thealrivera/claudius-modulus">View on GitHub</a></div>
+  <p class="note">Free. Updates itself. Needs Claude Code 2.1.295 or newer.</p>
+  <div class="demo">
+    <div class="band"><div class="r1"><span class="chip m">◆ Sonnet 5.5</span><span class="chip e"><span class="lv"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span> high</span><span class="bar">Session <span class="t"><i></i><u></u></span> <b>31%</b> resets 3h 55m · <span class="warn">runs out in ~2h 30m</span></span></div><div class="r2"><span class="cur"></span><span class="n">claudius-modulus_ v1.9.2</span> - <q>A token burned is a token earned.</q></div></div>
+  </div>
+</header>
+
+<section id="problem">
+  <div class="kick">THE PROBLEM</div>
+  <h2>Two menus. Three clicks. <em>Every time.</em></h2>
+  <p class="sec-lead">To change effort in Claude Code you open the model picker, find Effort, open its submenu, then choose. Model has its own path, with older models hidden under More models. Usage means typing a command and dismissing it. You do this all day.</p>
+  <div class="two">
+    <div class="card bad"><h3>BUILT IN</h3>
+      <div class="row"><div>Check usage<small>type /usage, Enter, close</small></div><b>3</b></div>
+      <div class="row"><div>Change effort<small>open picker, Effort, choose</small></div><b>3</b></div>
+      <div class="row"><div>Change model<small>open picker, choose (3 if under More models)</small></div><b>2</b></div></div>
+    <div class="card good"><h3>WITH CLAUDIUS-MODULUS</h3>
+      <div class="row"><div>Check usage<small>it is always on screen</small></div><b>0</b></div>
+      <div class="row"><div>Change effort<small>click the effort chip</small></div><b>1</b></div>
+      <div class="row"><div>Change model<small>click the model chip</small></div><b>1</b></div></div>
+  </div>
+</section>
+
+<section id="clicks">
+  <div class="kick">DO THE MATH</div>
+  <h2>How many clicks will it <em>save you</em>?</h2>
+  <p class="sec-lead">Set your own day. The estimate is deliberately conservative: it assumes each chip change takes two clicks on average, because chips step to the next option.</p>
+  <div class="calc">
+    <div class="ctl">
+      <label>Usage checks a day <output id="o1">12</output><input id="i1" type="range" min="0" max="40" value="12"></label>
+      <label>Effort changes a day <output id="o2">6</output><input id="i2" type="range" min="0" max="30" value="6"></label>
+      <label>Model changes a day <output id="o3">4</output><input id="i3" type="range" min="0" max="30" value="4"></label>
+    </div>
+    <div class="result">
+      <div class="n"><em id="day">42</em></div><span>fewer clicks a day<br><b id="pct" style="color:var(--ink)">68%</b> fewer overall</span>
+      <div class="n"><em id="yr">10,920</em></div><span>a year, at 260 working days</span>
+    </div>
+    <p class="fine">Built in: usage 3, effort 3, model 2 actions each. With the band: usage 0, effort 2, model 2 on average (1 when you move one step, and /cm jumps straight to any model or effort). Model changes are roughly even on click count; the win there is no menu hunting. Your numbers will differ, so move the sliders.</p>
+  </div>
+</section>
+
+<section id="features">
+  <div class="kick">WHAT YOU GET</div>
+  <h2>Everything your session is doing, <em>in two rows</em>.</h2>
+  <p class="sec-lead">Built for people who live in Claude Code and hate being surprised by a limit.</p>
+  <div class="feats">
+    <div class="feat"><div class="ic">◆</div><h3>Model and effort chips</h3><p>See what is answering and how hard it thinks. Click to step to the next one, or type <code>/cm model opus</code>.</p></div>
+    <div class="feat"><div class="ic">▂▅█</div><h3>Run-out forecast</h3><p>Your 5-hour usage bar shows where your pace ends the window, so you know before you hit the wall.</p></div>
+    <div class="feat"><div class="ic">!</div><h3>Overkill warnings</h3><p>Running max effort on a tiny question? A single toast says so, once, and then leaves you alone.</p></div>
+    <div class="feat"><div class="ic">◌</div><h3>Background work ring</h3><p>Sub-agents and workflows get a progress ring with an estimated time to completion.</p></div>
+    <div class="feat"><div class="ic">⚑</div><h3>Level meter</h3><p>From "You have work to do" to Tokenzilla. A playful read on how well you are using what you pay for.</p></div>
+    <div class="feat"><div class="ic">_</div><h3>Pep talk row</h3><p>Ten rotating one-liners keep spirits up. Turn them off any time with <code>/cm quips off</code>.</p></div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="kick">INSTALL</div>
+  <h2>One paste. <em>Claude does the rest.</em></h2>
+  <p class="sec-lead">Paste this into Claude Code. It reads the README and follows the steps, including turning on auto-update.</p>
+  <div class="steps">
+    <div class="step"><div style="flex:1">Paste to Claude Code
+      <div class="cmd"><span id="pasteText">Go to https://github.com/thealrivera/claudius-modulus and follow the install steps in the README.</span><button data-copy="pasteText">Copy</button></div></div></div>
+    <div class="step"><div>Start a new session, or run <code>/reload-plugins</code>. The band appears above the prompt.</div></div>
+  </div>
+  <p class="fine">Prefer a terminal?</p>
+  <div class="cmd"><span id="manual">claude plugin marketplace add thealrivera/claudius-modulus<br>claude plugin install claudius-modulus@claudius-modulus --scope user</span><button data-copy="manual">Copy</button></div>
+</section>
+
+<section id="team">
+  <div class="kick">A NOTE FOR THE CLAUDE CODE TEAM</div>
+  <div class="letter">
+    <h2 style="font-size:1.6rem">Model and effort should be one control.</h2>
+    <p>Today they are two separate flows inside one nested menu. Changing effort takes three actions, the usage readout is a command you type, and older models hide behind a second submenu that you have to hover your way into.</p>
+    <p><b>What would fix it:</b> one picker with model and effort side by side, a visible usage meter, and a keyboard shortcut for each. Until then, this mod does it with a band and a click.</p>
+  </div>
+</section>
+
+<section id="faq" class="faq">
+  <div class="kick">FAQ</div>
+  <h2>Quick answers.</h2>
+  <details><summary>Does it change how Claude answers?</summary><p>Only when you ask it to. A chip click sets the model or effort for your next requests, and your own choice in the built-in picker wins again as soon as you make one. The built-in picker keeps showing the session's own setting.</p></details>
+  <details><summary>Does it work on API billing?</summary><p>Yes. With no plan limits to track, the band shows session cost instead of the usage bar.</p></details>
+  <details><summary>Does it send my data anywhere?</summary><p>No. It runs inside Claude Code and reads local session state. The dev server count uses a local <code>lsof</code> check.</p></details>
+  <details><summary>How do I remove it?</summary><p><code>claude plugin uninstall claudius-modulus@claudius-modulus</code></p></details>
+  <details><summary>Is the click estimate real?</summary><p>It is an estimate from counting the actions in the built-in menus, with the assumptions shown above. It is not measured telemetry.</p></details>
+</section>
+
+<div class="final">
+  <h2>Stop clicking through menus. <em>Start shipping.</em></h2>
+  <p class="lead">Free, open source, one paste to install.</p>
+  <div class="cta"><a class="btn p" href="#install">Install it now</a><a class="btn s" href="https://github.com/thealrivera/claudius-modulus">Star on GitHub</a></div>
+</div>
+</div>
+<footer>Claudius Modulus is an independent community mod and is not affiliated with Anthropic. · <a href="https://github.com/thealrivera/claudius-modulus">GitHub</a></footer>
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  function calc(){
+    var u=+$('i1').value,e=+$('i2').value,m=+$('i3').value;
+    $('o1').textContent=u;$('o2').textContent=e;$('o3').textContent=m;
+    var native=u*3+e*3+m*2,mod=e*2+m*2,s=native-mod;
+    $('day').textContent=s.toLocaleString();
+    $('pct').textContent=(native?Math.round(s/native*100):0)+'%';
+    $('yr').textContent=(s*260).toLocaleString();
+  }
+  ['i1','i2','i3'].forEach(function(i){$(i).addEventListener('input',calc)});calc();
+  document.querySelectorAll('[data-copy]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var t=$(b.dataset.copy).innerText;
+      try{navigator.clipboard.writeText(t)}catch(e){}
+      b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500);
+    });
+  });
+})();
+</script>
+</body>
+</html>

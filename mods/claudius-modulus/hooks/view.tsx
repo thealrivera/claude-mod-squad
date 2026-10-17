@@ -10,6 +10,7 @@ import {
   barWithMarkers,
   fmtDur,
   fmtPct,
+  fmtWeekLeft,
   forecast,
   markerIdx,
   prettyModel,
@@ -17,16 +18,20 @@ import {
   shortModel,
   ramp,
   warnings,
+  weekPace,
+  weekSummary,
+  WEEK_SHOW_PCT,
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
 import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
-import { iconSvg } from './icons'
+import { iconLoopSvg } from './icons'
+import { modelFamily } from './cycle'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
-import { BRAND, versionLabel } from './version'
+import { BRAND, releaseUrl, versionLabel } from './version'
 
-export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text' | 'Button'>
+export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text' | 'Button' | 'Link'>
 
 export type BandData = {
   model: string | null
@@ -34,10 +39,14 @@ export type BandData = {
   isUltracode: boolean
   isPlan: boolean
   isCollapsed: boolean
+  isQuiet: boolean
+  servers: { count: number; port: number | null } | null
   work: Work | null
   onToggle: () => void | Promise<void>
+  onOpenServer: () => void | Promise<void>
   onCycleModel: () => void | Promise<void>
   onCycleEffort: () => void | Promise<void>
+  onSessionBar: () => void | Promise<void>
   limits: Limit[]
   samples: Sample[]
   costUsd: number | null
@@ -52,6 +61,47 @@ const GOOD = PAL.mint
 const WATCH = PAL.amber
 const BAD = PAL.red
 const NEUTRAL = '#8fb4ff'
+
+// The weekly-usage bar under the session bar: a low block, three eighths tall, on a faint track.
+const WEEK_GLYPH = '▃'
+const WEEK_TRACK = '#2b3048'
+const WEEK_CELL_PX = 17
+const WEEK_BAR_PX = 6
+
+// The week bar as a drawing: one block per cell, filled to the share used. The <title> is
+// what a hover shows.
+export function weekBarSvg(cells: number, filled: number, tip: string): string {
+  const w = cells * WEEK_CELL_PX
+  const rects = Array.from(
+    { length: cells },
+    (_, i) =>
+      `<rect x="${i * WEEK_CELL_PX}" y="0" width="${WEEK_CELL_PX - 1}" height="${WEEK_BAR_PX}" fill="${i < filled ? PAL.violet : WEEK_TRACK}"/>`,
+  ).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${WEEK_BAR_PX}" width="${w}" height="${WEEK_BAR_PX}"><title>${tip}</title>${rects}</svg>`
+}
+
+// The collapse toggle's labels. It sits at the band's top right in both shapes, so one spot
+// folds the band and the same spot opens it again. The desktop draws a native button no wider than its label, so there a
+// word beside the sign makes a target a click can find; the terminal's `[ + ]` is already
+// five cells wide, and a narrow band needs the room.
+const TOGGLE_LABEL = {
+  terminal: { expanded: '−', collapsed: '+' },
+  wide: { expanded: '− Less', collapsed: '+ More' },
+} as const
+
+const DAY = 24 * 3_600_000
+
+// The keys of the band's buttons.
+const BAND_KEYS: readonly string[] = ['modelChip', 'effortChip', 'toggle', 'servers', 'sessionBar']
+
+// True when the keyboard ring sits on one of the band's buttons (ctrl+x tab, then the arrows).
+export function onBandButton(e: { element?: string; plugin?: string }): boolean {
+  return (
+    e.element !== undefined &&
+    BAND_KEYS.includes(e.element) &&
+    (e.plugin === undefined || e.plugin === 'claudius-modulus')
+  )
+}
 
 const STATUS: Record<Forecast['state'], string> = {
   none: NEUTRAL,
@@ -70,20 +120,21 @@ const WARN_COLOR: Record<WarnKind, string> = {
   ultracode: PAL.magenta,
 }
 
-const EFFORT_GRADIENT: Record<string, string[]> = {
-  low: ['#475569', '#64748b'],
-  medium: ['#3b5bdb', PAL.blue],
-  high: [PAL.blue, PAL.cyan],
-  xhigh: [PAL.amber, PAL.orange],
-  max: [PAL.orange, PAL.red],
+// Background shades, lightest at the lowest step and darkest at the highest: haiku to fable
+// for the model (by capability), low to max for the effort. Each runs as a slight gradient.
+const MODEL_GRADIENT: Record<string, { stops: string[]; glyph: string }> = {
+  haiku: { stops: ['#b3a7ff', '#9d8dff'], glyph: '○' },
+  sonnet: { stops: ['#9d8dff', '#8a74ff'], glyph: '◇' },
+  opus: { stops: ['#7d66ff', '#6a50ec'], glyph: '◆' },
+  fable: { stops: ['#5f45e0', '#4a31c4'], glyph: '✦' },
 }
 
-const EFFORT_GLYPH: Record<string, string> = {
-  low: '◔',
-  medium: '◑',
-  high: '◕',
-  xhigh: '◉',
-  max: '⬤',
+const EFFORT_GRADIENT: Record<string, { stops: string[]; glyph: string; ink: string }> = {
+  low: { stops: ['#cbd5e1', '#b4c0d0'], glyph: '▂', ink: '#0f172a' },
+  medium: { stops: ['#94a3b8', '#7f8ea5'], glyph: '▃', ink: '#0f172a' },
+  high: { stops: ['#64748b', '#536176'], glyph: '▅', ink: PAL.ink },
+  xhigh: { stops: ['#475569', '#3b4a5f'], glyph: '▇', ink: PAL.ink },
+  max: { stops: ['#334155', '#1e293b'], glyph: '█', ink: '#e2e8f0' },
 }
 
 // The label column. Every row that sits against the bar starts after it, so the
@@ -91,7 +142,7 @@ const EFFORT_GLYPH: Record<string, string> = {
 const LABEL = 'Session'
 
 export function band(ui: Ui, d: BandData) {
-  const { Box, Text, Button } = ui
+  const { Box, Text, Button, Link } = ui
   const Svg = (ui as unknown as { Svg?: ElementTable<'desktop'>['Svg'] }).Svg
 
   // The block glyphs of the bar draw two text columns wide in the desktop app and one
@@ -132,12 +183,14 @@ export function band(ui: Ui, d: BandData) {
 
   // On the desktop: a square pixel icon for the level beside the chips, and the name under
   // them. In a terminal there is no square image, so the five-bar meter and the name stay.
+  // The icon loops inside its own SVG frame, so its source holds still between redraws.
   const sprite = Svg ? (
     <Svg
-      source={iconSvg(level, levelColor(level), d.now)}
+      source={iconLoopSvg(level, levelColor(level))}
       alt={`Pacing level ${level} of 5: ${LEVEL_NAMES[level - 1]}`}
       width={30}
       height={30}
+      isInteractive
     />
   ) : null
   const levelLine = Svg ? (
@@ -173,29 +226,28 @@ export function band(ui: Ui, d: BandData) {
   }
 
   // The forecast, in words.
-  const early = (fc.msToReset ?? 0) - (fc.msToEmpty ?? 0)
   let verdict = ''
   let verdictColor: string = PAL.mute
   if (five) {
     switch (fc.state) {
       case 'danger':
-        verdict = `Limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before reset.`
+        verdict = `Limit in ~${fmtDur(fc.msToEmpty)}`
         verdictColor = BAD
         break
       case 'ok':
       case 'tight':
-        verdict = `Projecting you hit ${fmtPct(Math.min(100, fc.projected))}.`
+        verdict = `Projecting ${fmtPct(Math.min(100, fc.projected))}`
         verdictColor = fc.state === 'ok' ? GOOD : WATCH
         break
       case 'limit':
-        verdict = 'Limit reached. It resets when the timer runs out.'
+        verdict = 'Limit reached'
         verdictColor = BAD
         break
       case 'idle':
-        verdict = 'Quiet right now, nothing is burning.'
+        verdict = 'Quiet'
         break
       default:
-        verdict = 'Still learning your pace.'
+        verdict = 'Learning pace'
     }
   }
 
@@ -203,15 +255,24 @@ export function band(ui: Ui, d: BandData) {
 
   // Collapsed, the chips are short ("S 5.5", "Low") and drop their symbols.
   const model = d.isCollapsed ? shortModel(d.model) : prettyModel(d.model)
+  // Each chip is a button too: a click cycles the model or the effort.
+  const modelShade = MODEL_GRADIENT[modelFamily(d.model) ?? ''] ?? MODEL_GRADIENT.opus!
   const chips: RenderElement[] = [
-    chip(d.isCollapsed ? model : `◆ ${model}`, [PAL.violet, PAL.blue], '#ffffff'),
+    <Button key="modelChip" plain onPress={d.onCycleModel}>
+      {chip(
+        d.isCollapsed ? model : `${modelShade.glyph} ${model}`,
+        modelShade.stops,
+        '#ffffff',
+      )}
+    </Button>,
   ]
   const effortText = d.effort ? (d.isCollapsed ? shortEffort(d.effort) : d.effort) : ''
   if (d.effort) {
-    const stops = EFFORT_GRADIENT[d.effort] ?? EFFORT_GRADIENT.medium!
-    const glyph = EFFORT_GLYPH[d.effort] ?? '◑'
+    const shade = EFFORT_GRADIENT[d.effort] ?? EFFORT_GRADIENT.medium!
     chips.push(
-      chip(d.isCollapsed ? effortText : `${glyph} ${effortText}`, stops, d.effort === 'low' ? '#e2e8f0' : PAL.ink),
+      <Button key="effortChip" plain onPress={d.onCycleEffort}>
+        {chip(d.isCollapsed ? effortText : `${shade.glyph} ${effortText}`, shade.stops, shade.ink)}
+      </Button>,
     )
   }
   // Text columns the chips take, so the session block beside them gets the rest.
@@ -219,50 +280,66 @@ export function band(ui: Ui, d: BandData) {
     ? model.length + 2 + (d.effort ? 1 + effortText.length + 2 : 0)
     : model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
   const leftCols = Math.max(chipsWidth, 5 * cellCols + 36) + (Svg ? 4 : 0)
-  // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
-  // line with a one-character sprite, the chips and the toggle.
+  const toggleLabel = d.surface === 'terminal' ? TOGGLE_LABEL.terminal : TOGGLE_LABEL.wide
+  // Text columns the toggle takes: the terminal draws it `[ label ]`.
+  const toggleCols = toggleLabel.expanded.length + 4
+  // Collapsed, the block shares the one line with the toggle, a one-character sprite and
+  // the chips.
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
   const blockCols = d.isCollapsed
-    ? d.cols - 2 - chipsWidth - 2 - 5
-    : d.cols - leftCols - 4 - ringCols
+    ? d.cols - toggleCols - 1 - 2 - chipsWidth - 2
+    : Math.max(40, Math.min(70, d.cols - 60))
   const toggle = (
-    <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
-  )
-  // Cycle the model or the effort: a click, or the letter once the band has the focus
-  // (ctrl+x tab). Drawn plain and dim, so the letter shows as the hint.
-  const cyclers = (
-    <Box flexDirection="row" gap={1}>
-      <Button key="model" hotkey="m" plain dimColor onPress={d.onCycleModel}>
-        model
-      </Button>
-      <Button key="effort" hotkey="e" plain dimColor onPress={d.onCycleEffort}>
-        effort
-      </Button>
+    <Box flexShrink={0}>
+      <Button
+        key="toggle"
+        label={d.isCollapsed ? toggleLabel.collapsed : toggleLabel.expanded}
+        onPress={d.onToggle}
+      />
     </Box>
   )
-
-  const brand = (
-    <Box flexDirection="column" alignItems="flex-end">
+  const devServers =
+    d.servers === null ? null : d.servers.port !== null ? (
+      <Button key="servers" plain onPress={d.onOpenServer}>
+        <Text color={PAL.mute} dimColor underline>
+          {d.servers.count} dev {d.servers.count === 1 ? 'server' : 'servers'}
+        </Text>
+      </Button>
+    ) : (
       <Text color={PAL.mute} dimColor>
-        {versionLabel()}
+        {d.servers.count} dev servers
       </Text>
-    </Box>
-  )
+    )
 
   // ---- rows 2 and 3: the session bar, and the labels under its markers ---
 
-  // Things that only show up when they matter, so the row stays quiet.
+  // Things that only show up when they matter, so the row stays quiet. Most urgent first:
+  // a narrow row drops them from the end.
   const extras: { text: string; color: string }[] = []
-  if (week && week.percentUsed >= 80) {
-    extras.push({ text: `week ${fmtPct(week.percentUsed)}`, color: week.percentUsed >= 95 ? BAD : WATCH })
+  // The week shows when its pace runs out before it resets, in whole hours under a day, or
+  // once half of it is used.
+  const wk = weekPace(week, d.now)
+  const weekOut = week !== undefined && wk?.runsOut === true && week.percentUsed < 100
+  if (weekOut) {
+    extras.push({
+      text: `week out ~${fmtWeekLeft(wk!.msToEmpty)}`,
+      color: wk!.msToEmpty < DAY || week!.percentUsed >= 95 ? BAD : WATCH,
+    })
   }
   if (d.ctxPercent !== null && d.ctxPercent >= 85) {
-    extras.push({ text: `context ${fmtPct(d.ctxPercent)} full`, color: d.ctxPercent >= 95 ? BAD : WATCH })
+    extras.push({ text: `context ${fmtPct(d.ctxPercent)} full, /compact`, color: d.ctxPercent >= 95 ? BAD : WATCH })
+  }
+  if (!weekOut && week && week.percentUsed >= WEEK_SHOW_PCT) {
+    extras.push({
+      text: `week ${fmtPct(week.percentUsed)}`,
+      color: week.percentUsed >= 95 ? BAD : week.percentUsed >= 80 ? WATCH : NEUTRAL,
+    })
   }
 
   let barRow: RenderElement
   let usedLine: RenderElement | null = null
   let labelRow: RenderElement | null = null
+  let weekRow: RenderElement | null = null
 
   if (!five) {
     // No plan limits: say so plainly, and show cost only for API billing.
@@ -311,10 +388,13 @@ export function band(ui: Ui, d: BandData) {
     const showShort = msgCols > 0 && room(keep) - width * cellCols >= msgCols
     const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
 
+    // The reset time is a button: a click toasts the week's usage and where its pace ends
+    // it. Only that grey text is one, because a desktop draws a Button's contents in its
+    // own colour, which would bleach the bar's gradient.
     barRow = (
       <Box flexDirection="row">
-        <Box flexShrink={1}>
-          <Text wrap="truncate">
+        <Box flexShrink={0}>
+          <Text>
             {d.isCollapsed ? (
               <Text color={color} bold>
                 {pct}{' '}
@@ -325,7 +405,16 @@ export function band(ui: Ui, d: BandData) {
                 {cell.ch}
               </Text>
             ))}
-            <Text color={PAL.mute}>  {resets}</Text>
+            <Text>{'  '}</Text>
+          </Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Button key="sessionBar" plain onPress={d.onSessionBar}>
+            <Text color={PAL.mute}>{resets}</Text>
+          </Button>
+        </Box>
+        <Box flexShrink={1}>
+          <Text wrap="truncate">
             {showShort && short ? (
               <Text>
                 <Text color={PAL.mute}> · </Text>
@@ -345,6 +434,30 @@ export function band(ui: Ui, d: BandData) {
           </Text>
         </Box>
       </Box>
+    )
+
+    // The week under the bar, as wide as the bar: a thin shaded track, filled to the share of
+    // the 7-day limit used so far.
+    const weekCols = width * cellCols
+    const weekFill = Math.round((Math.min(100, Math.max(0, week?.percentUsed ?? 0)) / 100) * weekCols)
+    const weekCells = Array.from({ length: weekCols }, (_, i) => (
+      <Text key={String(i)} color={i < weekFill ? PAL.violet : WEEK_TRACK}>
+        {WEEK_GLYPH}
+      </Text>
+    ))
+    // On the desktop the bar is an SVG so hovering it shows a tooltip (its <title>) with the
+    // week's numbers; a glyph there is 17 px wide. A terminal keeps the text bar.
+    const tip = weekSummary(week, d.now).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    weekRow = Svg && d.surface !== 'terminal' ? (
+      <Svg
+        source={weekBarSvg(weekCols, weekFill, tip)}
+        alt={tip}
+        width={weekCols * WEEK_CELL_PX}
+        height={WEEK_BAR_PX}
+        isInteractive
+      />
+    ) : (
+      <Text wrap="truncate">{weekCells}</Text>
     )
 
     // The one marker's label and the forecast, starting at the bar's left edge.
@@ -388,14 +501,22 @@ export function band(ui: Ui, d: BandData) {
           </Text>
         ))}
         <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
+        <Text>{' '}</Text>
         <Text color={PAL.mute} dimColor>
-          {' - '}
+          <Link href={releaseUrl()} label={versionLabel()} />
         </Text>
-        <Text color={PAL.mute} italic>
-          {'“'}
-          {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
-          {'”'}
-        </Text>
+        {d.isQuiet ? null : (
+          <Text>
+            <Text color={PAL.mute} dimColor>
+              {' - '}
+            </Text>
+            <Text color={PAL.mute} italic>
+              {'“'}
+              {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
+              {'”'}
+            </Text>
+          </Text>
+        )}
       </Text>
     )
 
@@ -403,7 +524,7 @@ export function band(ui: Ui, d: BandData) {
     const g = levelGlyph(level)
     return (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexDirection="row" gap={1}>
+        <Box flexDirection="row" gap={1} flexShrink={0}>
           <Text color={g.color}>{g.ch}</Text>
           {chips}
         </Box>
@@ -415,8 +536,8 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" justifyContent="flex-end" gap={2}>
-        {cyclers}
+      <Box flexDirection="row" justifyContent="flex-end" alignItems="center" gap={2}>
+        {devServers}
         {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
@@ -430,14 +551,14 @@ export function band(ui: Ui, d: BandData) {
           </Box>
         </Box>
         {ring}
-        <Box flexDirection="column" flexShrink={1}>
+      </Box>
+      <Box flexDirection="row" justifyContent="space-between" alignItems="flex-end" gap={2}>
+        <Box flexShrink={1}>{last}</Box>
+        <Box flexDirection="column" flexShrink={0}>
           {barRow}
           {labelRow}
+          {weekRow}
         </Box>
-      </Box>
-      <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexShrink={1}>{last}</Box>
-        {brand}
       </Box>
     </Box>
   )

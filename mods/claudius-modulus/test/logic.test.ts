@@ -11,6 +11,9 @@ import {
   dim,
   fmtDur,
   fmtPct,
+  heavySetting,
+  isSimplePrompt,
+  nextStreak,
   forecast,
   prettyModel,
   shortEffort,
@@ -18,11 +21,26 @@ import {
   pushSample,
   ramp,
   warnings,
+  weekPace,
+  weekSummary,
+  isFocusHeld,
+  FOCUS_HOLD_MS,
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
-import { FRAMES, FRAME_MS, ICONS, iconFrame, iconSvg } from '../hooks/icons'
-import { EFFORTS, MODELS, modelFamily, nextEffort, nextModel, parseCm, resolveModel } from '../hooks/cycle'
+import { FRAMES, FRAME_MS, ICONS, iconFrame, iconLoopSvg, iconSvg } from '../hooks/icons'
+import {
+  EFFORTS,
+  MODELS,
+  isModelName,
+  modelFamily,
+  nextEffort,
+  nextModel,
+  parseCm,
+  resolveModel,
+  sameModel,
+} from '../hooks/cycle'
+import { onBandButton } from '../hooks/view'
 import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
@@ -192,12 +210,12 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.5.0')
+  expect(versionLabel(VERSION)).toBe('v1.9.2')
 })
 
-test('there are twenty quips, each short, distinct and free of em dashes', () => {
-  expect(QUIPS.length).toBe(20)
-  expect(new Set(QUIPS).size).toBe(20)
+test('there are ten quips, each short, distinct and free of em dashes', () => {
+  expect(QUIPS.length).toBe(10)
+  expect(new Set(QUIPS).size).toBe(10)
   for (const q of QUIPS) {
     expect(q.length).toBeLessThanOrEqual(70)
     expect(q.includes('\u2014')).toBe(false)
@@ -206,12 +224,12 @@ test('there are twenty quips, each short, distinct and free of em dashes', () =>
 
 test('with no warning the second row steps through every quip, then starts over', () => {
   const t0 = 1000 * ROTATE_MS
-  const seen = Array.from({ length: 21 }, (_, i) => rowFor(t0 + i * ROTATE_MS, false))
+  const seen = Array.from({ length: 11 }, (_, i) => rowFor(t0 + i * ROTATE_MS, false))
   expect(seen.every(r => r.kind === 'quip')).toBe(true)
   const idx = seen.map(r => (r.kind === 'quip' ? r.index : -1))
-  expect(new Set(idx.slice(0, 20)).size).toBe(20)
-  expect(idx[20]).toBe(idx[0])
-  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
+  expect(new Set(idx.slice(0, 10)).size).toBe(10)
+  expect(idx[10]).toBe(idx[0])
+  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 10)
 })
 
 test('a row holds for the whole switch interval', () => {
@@ -226,8 +244,8 @@ test('with a warning it takes every other switch and the quips carry on in order
   expect(kinds).toEqual(['alert', 'quip', 'alert', 'quip', 'alert', 'quip'])
   const quips = [1, 3, 5, 7].map(i => rowFor(t0 + i * ROTATE_MS, true))
   const idx = quips.map(r => (r.kind === 'quip' ? r.index : -1))
-  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
-  expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 20)
+  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 10)
+  expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 10)
 })
 
 test('two markers: Burned where usage stands, Pace Burn where the pace ends the window', () => {
@@ -403,6 +421,29 @@ test('each icon is a loop of 12 by 12 frames that holds still in its box', () =>
   expect(FRAME_MS[0]!).toBeGreaterThan(FRAME_MS[4]!)
 })
 
+test('the focus hold lasts a few seconds after the last move or press, then lapses', () => {
+  expect(isFocusHeld(0, 1_000_000)).toBe(false)
+  expect(isFocusHeld(1_000_000, 1_000_000)).toBe(true)
+  expect(isFocusHeld(1_000_000, 1_000_000 + FOCUS_HOLD_MS - 1)).toBe(true)
+  expect(isFocusHeld(1_000_000, 1_000_000 + FOCUS_HOLD_MS)).toBe(false)
+})
+
+test('a context tag does not make a different model, so a clicked override stands', () => {
+  expect(sameModel('claude-opus-5-5[1m]', 'claude-opus-5-5')).toBe(true)
+  expect(sameModel('claude-opus-5-5', 'claude-opus-5-5')).toBe(true)
+  expect(sameModel('claude-opus-5-5', 'claude-sonnet-5-5')).toBe(false)
+})
+
+test('only the band\'s own buttons count as focus on the band', () => {
+  expect(onBandButton({ element: 'modelChip' })).toBe(true)
+  expect(onBandButton({ element: 'effortChip', plugin: 'claudius-modulus' })).toBe(true)
+  expect(onBandButton({ element: 'toggle' })).toBe(true)
+  expect(onBandButton({ element: 'servers' })).toBe(true)
+  expect(onBandButton({})).toBe(false)
+  expect(onBandButton({ element: 'something-else' })).toBe(false)
+  expect(onBandButton({ element: 'modelChip', plugin: 'other-mod' })).toBe(false)
+})
+
 test('cycling steps through the models and efforts, wrapping at the ends', () => {
   expect(modelFamily('claude-opus-5-5[1m]')).toBe('opus')
   expect(modelFamily('sonnet')).toBe('sonnet')
@@ -432,4 +473,105 @@ test('/cm reads its words: a kind, a direction or a name, or off', () => {
   expect(parseCm('off')).toEqual({ kind: 'off' })
   expect(parseCm('reset')).toEqual({ kind: 'off' })
   expect(parseCm('bogus')).toEqual({ kind: 'help' })
+  expect(parseCm('quips')).toEqual({ kind: 'quips', value: 'toggle' })
+  expect(parseCm('quips off')).toEqual({ kind: 'quips', value: 'off' })
+  expect(parseCm('q on')).toEqual({ kind: 'quips', value: 'on' })
+  expect(parseCm('quips loud')).toEqual({ kind: 'help' })
+})
+
+test('/cm takes a model it can send, and refuses a typo that would fail every request', () => {
+  expect(parseCm('model claude-opus-4-1')).toEqual({ kind: 'model', value: 'claude-opus-4-1' })
+  expect(parseCm('model claude-opus-5-5[1m]')).toEqual({ kind: 'model', value: 'claude-opus-5-5[1m]' })
+  expect(parseCm('model opuss')).toEqual({ kind: 'help' })
+  expect(parseCm('model gpt-5')).toEqual({ kind: 'help' })
+  expect(isModelName('Haiku')).toBe(true)
+  expect(isModelName('claude-sonnet-5-5')).toBe(true)
+  expect(isModelName('claude-')).toBe(false)
+  expect(isModelName('sonet')).toBe(false)
+})
+
+test('the week summary says what is used, where the pace ends it, and when it resets', () => {
+  const NOW = Date.parse('2026-10-11T20:00:00Z')
+  const week = (percentUsed: number, resetInDays: number): Limit => ({
+    kind: 'seven_day',
+    percentUsed,
+    resetsAt: new Date(NOW + resetInDays * 86_400_000).toISOString(),
+  })
+  expect(weekSummary(undefined, NOW)).toBe('Week: no reading yet')
+  expect(weekSummary(week(30, 3), NOW)).toBe('Week 30% used, projecting 53% at reset, resets in 3d')
+  expect(weekSummary(week(90, 3), NOW)).toMatch(/^Week 90% used, runs out in ~11h, resets in 3d$/)
+  // too early in the week for a pace: just the use and the reset
+  expect(weekSummary(week(10, 6.8), NOW)).toBe('Week 10% used, resets in 7d')
+})
+
+test('the week runs out when its pace so far will not last to the reset', () => {
+  const DAY = 86_400_000
+  const week = (percentUsed: number, resetInDays: number): Limit => ({
+    kind: 'seven_day',
+    percentUsed,
+    resetsAt: new Date(NOW + resetInDays * DAY).toISOString(),
+  })
+  // four days in at 90%: 22.5% a day, so the last 10% lasts under half a day of the three left
+  const hot = weekPace(week(90, 3), NOW)!
+  expect(hot.runsOut).toBe(true)
+  expect(Math.round(hot.msToEmpty / 3_600_000)).toBe(11)
+  // four days in at 30%: 7.5% a day ends the week near 52%
+  const calm = weekPace(week(30, 3), NOW)!
+  expect(calm.runsOut).toBe(false)
+  expect(Math.round(calm.projected)).toBe(53)
+  // too early in the week, nothing used, or no window: no pace
+  expect(weekPace(week(10, 6.8), NOW)).toBeUndefined()
+  expect(weekPace(week(0, 3), NOW)).toBeUndefined()
+  expect(weekPace(undefined, NOW)).toBeUndefined()
+})
+
+test('the looping icon holds every frame, each shown in its turn, in the resting frame\'s box', () => {
+  for (const l of [1, 2, 3, 4, 5] as const) {
+    const frames = FRAMES[l - 1]!
+    const svg = iconLoopSvg(l, '#d97757')
+    expect(svg.startsWith('<svg')).toBe(true)
+    expect(svg.match(/viewBox="([^"]+)"/)![1]).toBe(iconSvg(l, '#d97757').match(/viewBox="([^"]+)"/)![1])
+    expect(svg.match(/<animate /g)?.length).toBe(frames.length)
+    expect(svg).toContain(`dur="${frames.length * FRAME_MS[l - 1]!}ms"`)
+    expect(svg).toContain('repeatCount="indefinite"')
+    // without SMIL the resting frame shows alone
+    expect(svg.match(/<g visibility="visible">/g)?.length).toBe(1)
+    expect(svg.indexOf('<g visibility="visible">')).toBeLessThan(svg.indexOf('<g visibility="hidden">'))
+    // one colour for the whole loop
+    expect(svg.match(/fill="/g)?.length).toBe(1)
+  }
+})
+
+test('short plain questions are simple; code, paths, work verbs and long prompts are not', () => {
+  expect(isSimplePrompt('what does effort mean?')).toBe(true)
+  expect(isSimplePrompt('thanks, and why is that?')).toBe(true)
+  expect(isSimplePrompt('')).toBe(false)
+  expect(isSimplePrompt('fix the login bug')).toBe(false)
+  expect(isSimplePrompt('what is in src/app.ts')).toBe(false)
+  expect(isSimplePrompt('what does `foo` do?')).toBe(false)
+  expect(isSimplePrompt('first line\nsecond line')).toBe(false)
+  expect(isSimplePrompt('why '.repeat(60))).toBe(false)
+})
+
+test('only ultracode, xhigh and max count as heavy settings', () => {
+  expect(heavySetting('high', false)).toBe(null)
+  expect(heavySetting(null, false)).toBe(null)
+  expect(heavySetting('xhigh', false)).toBe('XHigh effort')
+  expect(heavySetting('max', false)).toBe('Max effort')
+  expect(heavySetting('low', true)).toBe('Ultracode')
+})
+
+test('the overkill toast fires once per streak of simple prompts under heavy settings', () => {
+  let streak = 0
+  const fired: boolean[] = []
+  for (const [simple, heavy] of [[true, true], [true, true], [true, true], [true, true]] as const) {
+    const r = nextStreak(streak, simple, heavy)
+    streak = r.streak
+    fired.push(r.toast)
+  }
+  expect(fired).toEqual([false, true, false, false])
+  // a real task, or lighter settings, ends the streak, and the next streak toasts again
+  expect(nextStreak(5, false, true)).toEqual({ streak: 0, toast: false })
+  expect(nextStreak(5, true, false)).toEqual({ streak: 0, toast: false })
+  expect(nextStreak(nextStreak(0, true, true).streak, true, true).toast).toBe(true)
 })
