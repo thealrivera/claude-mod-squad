@@ -5,7 +5,7 @@ burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ▌ claudius-modulus_ v1.8.2 - “A token burned is a token earned.”
+ ▌ claudius-modulus_ v1.8.3 - “A token burned is a token earned.”
 ```
 
 ## Install in one step
@@ -50,7 +50,7 @@ That's all. The steps below are what it will follow, so you can also run them yo
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## What it shows (v1.8.2)
+## What it shows (v1.8.3)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
