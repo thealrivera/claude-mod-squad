@@ -11,6 +11,9 @@ import {
   dim,
   fmtDur,
   fmtPct,
+  heavySetting,
+  isSimplePrompt,
+  nextStreak,
   forecast,
   prettyModel,
   shortEffort,
@@ -193,7 +196,7 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.8.0')
+  expect(versionLabel(VERSION)).toBe('v1.8.1')
 })
 
 test('there are twenty quips, each short, distinct and free of em dashes', () => {
@@ -486,4 +489,38 @@ test('the looping icon holds every frame, each shown in its turn, in the resting
     // one colour for the whole loop
     expect(svg.match(/fill="/g)?.length).toBe(1)
   }
+})
+
+test('short plain questions are simple; code, paths, work verbs and long prompts are not', () => {
+  expect(isSimplePrompt('what does effort mean?')).toBe(true)
+  expect(isSimplePrompt('thanks, and why is that?')).toBe(true)
+  expect(isSimplePrompt('')).toBe(false)
+  expect(isSimplePrompt('fix the login bug')).toBe(false)
+  expect(isSimplePrompt('what is in src/app.ts')).toBe(false)
+  expect(isSimplePrompt('what does `foo` do?')).toBe(false)
+  expect(isSimplePrompt('first line\nsecond line')).toBe(false)
+  expect(isSimplePrompt('why '.repeat(60))).toBe(false)
+})
+
+test('only ultracode, xhigh and max count as heavy settings', () => {
+  expect(heavySetting('high', false)).toBe(null)
+  expect(heavySetting(null, false)).toBe(null)
+  expect(heavySetting('xhigh', false)).toBe('XHigh effort')
+  expect(heavySetting('max', false)).toBe('Max effort')
+  expect(heavySetting('low', true)).toBe('Ultracode')
+})
+
+test('the overkill toast fires once per streak of simple prompts under heavy settings', () => {
+  let streak = 0
+  const fired: boolean[] = []
+  for (const [simple, heavy] of [[true, true], [true, true], [true, true], [true, true]] as const) {
+    const r = nextStreak(streak, simple, heavy)
+    streak = r.streak
+    fired.push(r.toast)
+  }
+  expect(fired).toEqual([false, true, false, false])
+  // a real task, or lighter settings, ends the streak, and the next streak toasts again
+  expect(nextStreak(5, false, true)).toEqual({ streak: 0, toast: false })
+  expect(nextStreak(5, true, false)).toEqual({ streak: 0, toast: false })
+  expect(nextStreak(nextStreak(0, true, true).streak, true, true).toast).toBe(true)
 })

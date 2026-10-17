@@ -15,11 +15,11 @@ declare module 'claude-code' {
       override: Override | null
       engine: Engine
       toasted: number
+      simpleRun: number
       isUltracode: boolean
       isPlan: boolean
       isCollapsed: boolean
       isQuiet: boolean
-      bandFocus: boolean
       servers: number | null
       agents: AgentRec[]
       limits: Limit[]

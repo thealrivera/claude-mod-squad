@@ -10,9 +10,18 @@ import type {
 import type { Limit, Override } from '../types'
 import { CM_USAGE, nextEffort, nextModel, parseCm, resolveModel } from './cycle'
 import type { Dir } from './cycle'
-import { FIVE_HOUR, prettyModel, pushSample, warnings, worstRank } from './logic'
+import {
+  FIVE_HOUR,
+  heavySetting,
+  isSimplePrompt,
+  nextStreak,
+  prettyModel,
+  pushSample,
+  warnings,
+  worstRank,
+} from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
-import { band, onBandButton } from './view'
+import { band } from './view'
 import { LSOF_ARGS, SERVERS_EVERY_MS, devServerUrl, summarizeDevServers } from './servers'
 
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
@@ -24,6 +33,7 @@ const override = atom({ plugin: 'claudius-modulus', key: 'override' } as const, 
 // `toasted` the highest warning rank already toasted, so each level toasts once.
 const engine = atom({ plugin: 'claudius-modulus', key: 'engine' } as const, { model: null, effort: null })
 const toasted = atom({ plugin: 'claudius-modulus', key: 'toasted' } as const, 0)
+const simpleRun = atom({ plugin: 'claudius-modulus', key: 'simpleRun' } as const, 0)
 const isUltracode = atom({ plugin: 'claudius-modulus', key: 'isUltracode' } as const, false)
 const isPlan = atom({ plugin: 'claudius-modulus', key: 'isPlan' } as const, false)
 const isCollapsed = atom({ plugin: 'claudius-modulus', key: 'isCollapsed' } as const, false)
@@ -34,7 +44,6 @@ const samples = atom({ plugin: 'claudius-modulus', key: 'samples' } as const, []
 const costUsd = atom({ plugin: 'claudius-modulus', key: 'costUsd' } as const, null)
 const ctxPercent = atom({ plugin: 'claudius-modulus', key: 'ctxPercent' } as const, null)
 const tick = atom({ plugin: 'claudius-modulus', key: 'tick' } as const, 0)
-const bandFocus = atom({ plugin: 'claudius-modulus', key: 'bandFocus' } as const, false)
 const servers = atom({ plugin: 'claudius-modulus', key: 'servers' } as const, null)
 
 type Measured = {
@@ -46,10 +55,8 @@ type Measured = {
 const ULTRACODE_WORD = /\bultracode\b/i
 // How often the band redraws on its own. Expanded: one small step of the rule's breathing
 // (the cursor still blinks once a second) (the desktop's level icon loops inside its own SVG, so nothing needs a
-// faster redraw). With the focus on one of its buttons: seldom, so a click lands on the
-// button it was aimed at. Collapsed: only the reset countdown shows, in minutes.
+// faster redraw). Collapsed: only the reset countdown shows, in minutes.
 const REDRAW_EVERY_MS = 250
-const FOCUSED_REDRAW_MS = 5000
 const COLLAPSED_REDRAW_MS = 30_000
 const TIMER_SLACK_MS = 100
 
@@ -96,6 +103,18 @@ async function alertIfWorse($: EngineInterface) {
     $.ui.toast(`⚠ ${list[0].label}: ${list[0].detail}`, { timeoutMs: 7000 })
   }
   await update($, toasted, () => rank)
+}
+
+// Quiet by default: after a short run of plain questions under ultracode or high effort,
+// one toast says the setting is more than the task needs. Any other prompt starts it over.
+async function checkOverkill($: EngineInterface, text: string) {
+  if (await read($, isQuiet)) return
+  const heavy = heavySetting(await read($, effort), await read($, isUltracode))
+  const r = nextStreak(await read($, simpleRun), isSimplePrompt(text), heavy !== null)
+  await update($, simpleRun, () => r.streak)
+  if (r.toast && heavy) {
+    $.ui.toast(`${heavy} on quick questions: a lower setting would answer these for less`, { timeoutMs: 7000 })
+  }
 }
 
 // Sets the model or effort the next request uses, shows it on the chips at once, and says so.
@@ -147,11 +166,7 @@ export const register: Register = on => {
     })
     // `tick` holds when the band last redrew on its own.
     $.clock.every(REDRAW_EVERY_MS, async () => {
-      const step = (await read($, isCollapsed))
-        ? COLLAPSED_REDRAW_MS
-        : (await read($, bandFocus))
-          ? FOCUSED_REDRAW_MS
-          : REDRAW_EVERY_MS
+      const step = (await read($, isCollapsed)) ? COLLAPSED_REDRAW_MS : REDRAW_EVERY_MS
       const now = await $.clock.now()
       if (now - (await read($, tick)) >= step - TIMER_SLACK_MS) await update($, tick, () => now)
     })
@@ -270,18 +285,13 @@ export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     await update($, isUltracode, () => ULTRACODE_WORD.test(e.text))
     await alertIfWorse($)
+    if (!e.command) await checkOverkill($, e.text)
     return next(e)
   }).catch(($, e, next) => next(e))
 
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => {
     await update($, isUltracode, () => true)
     await alertIfWorse($)
-    return next(e)
-  }).catch(($, e, next) => next(e))
-
-  // The keyboard ring moving over the band: lit while it sits on one of the band's buttons.
-  on('ui.focus', { component: 'AbovePrompt' }, async ($, e, next) => {
-    await update($, bandFocus, () => onBandButton(e))
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -299,7 +309,6 @@ export const register: Register = on => {
       isPlan: await read($, isPlan),
       isCollapsed: await read($, isCollapsed),
       isQuiet: await read($, isQuiet),
-      focused: await read($, bandFocus),
       servers: await read($, servers),
       work: summarize(await read($, agents), await $.clock.now()),
       // The store first, as for the quips; every open session follows it.
