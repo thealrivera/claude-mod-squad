@@ -21,7 +21,7 @@ import {
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
-import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
+import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel, ruleGlow } from './sprites'
 import { iconLoopSvg } from './icons'
 import { modelFamily } from './cycle'
 import { pieGlyph, ringSvg } from './work'
@@ -278,13 +278,13 @@ export function band(ui: Ui, d: BandData) {
   // The bottom border of the left block: a rule in the cursor's colours,
   // fading from left to right, its brightness breathing with the cursor. Orange while the
   // band has the focus.
-  const ruleGlow = cursorGlow(d.now)
+  const ruleLight = ruleGlow(d.now)
   const ruleStops = d.focused ? [FOCUS_DIM, FOCUS_ORANGE] : [CURSOR_DIM, PAL.violet]
   const ruleCols = Math.max(1, leftCols)
   const rule = (
     <Text wrap="truncate">
       {Array.from({ length: ruleCols }, (_, i) => (
-        <Text key={String(i)} color={ramp(ruleStops, ruleGlow * (0.3 + (0.7 * i) / Math.max(1, ruleCols - 1)))}>
+        <Text key={String(i)} color={ramp(ruleStops, ruleLight * (0.3 + (0.7 * i) / Math.max(1, ruleCols - 1)))}>
           ▔
         </Text>
       ))}
@@ -300,26 +300,18 @@ export function band(ui: Ui, d: BandData) {
       />
     </Box>
   )
-  const brand = (
-    <Box flexDirection="row" gap={2}>
-      {d.servers !== null ? (
-        d.servers.port !== null ? (
-          <Button key="servers" plain onPress={d.onOpenServer}>
-            <Text color={PAL.mute} dimColor underline>
-              {d.servers.count} dev {d.servers.count === 1 ? 'server' : 'servers'}
-            </Text>
-          </Button>
-        ) : (
-          <Text color={PAL.mute} dimColor>
-            {d.servers.count} dev servers
-          </Text>
-        )
-      ) : null}
+  const devServers =
+    d.servers === null ? null : d.servers.port !== null ? (
+      <Button key="servers" plain onPress={d.onOpenServer}>
+        <Text color={PAL.mute} dimColor underline>
+          {d.servers.count} dev {d.servers.count === 1 ? 'server' : 'servers'}
+        </Text>
+      </Button>
+    ) : (
       <Text color={PAL.mute} dimColor>
-        {versionLabel()}
+        {d.servers.count} dev servers
       </Text>
-    </Box>
-  )
+    )
 
   // ---- rows 2 and 3: the session bar, and the labels under its markers ---
 
@@ -475,6 +467,10 @@ export function band(ui: Ui, d: BandData) {
           ),
         )}
         <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
+        <Text>{' '}</Text>
+        <Text color={PAL.mute} dimColor>
+          {versionLabel()}
+        </Text>
         {d.isQuiet ? null : (
           <Text>
             <Text color={PAL.mute} dimColor>
@@ -506,7 +502,8 @@ export function band(ui: Ui, d: BandData) {
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" justifyContent="flex-end">
+      <Box flexDirection="row" justifyContent="flex-end" alignItems="center" gap={2}>
+        {devServers}
         {toggle}
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
@@ -525,9 +522,8 @@ export function band(ui: Ui, d: BandData) {
           {labelRow}
         </Box>
       </Box>
-      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+      <Box flexDirection="row">
         <Box flexShrink={1}>{last}</Box>
-        {brand}
       </Box>
       <Box flexDirection="row">{rule}</Box>
     </Box>

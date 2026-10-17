@@ -47,3 +47,11 @@ export function cursorGlow(now: number): number {
   const i = Math.floor(now / CURSOR_MS) % CURSOR_FRAMES
   return (1 + Math.cos((2 * Math.PI * i) / CURSOR_FRAMES)) / 2
 }
+
+// The rule's breathing: one slow, smooth swell and fade, about four seconds a breath. It
+// is drawn on the band's quicker expanded redraw, so it takes many small steps.
+export const RULE_BREATH_MS = 4000
+export function ruleGlow(now: number): number {
+  const phase = (now % RULE_BREATH_MS) / RULE_BREATH_MS
+  return 0.15 + 0.85 * ((1 - Math.cos(2 * Math.PI * phase)) / 2)
+}
