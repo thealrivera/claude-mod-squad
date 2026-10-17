@@ -26,9 +26,9 @@ import { iconLoopSvg } from './icons'
 import { modelFamily } from './cycle'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
-import { BRAND, versionLabel } from './version'
+import { BRAND, releaseUrl, versionLabel } from './version'
 
-export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text' | 'Button'>
+export type Ui = Pick<ElementTable<'terminal'>, 'Box' | 'Text' | 'Button' | 'Link'>
 
 export type BandData = {
   model: string | null
@@ -111,7 +111,7 @@ const EFFORT_GRADIENT: Record<string, { stops: string[]; glyph: string; ink: str
 const LABEL = 'Session'
 
 export function band(ui: Ui, d: BandData) {
-  const { Box, Text, Button } = ui
+  const { Box, Text, Button, Link } = ui
   const Svg = (ui as unknown as { Svg?: ElementTable<'desktop'>['Svg'] }).Svg
 
   // The block glyphs of the bar draw two text columns wide in the desktop app and one
@@ -445,7 +445,7 @@ export function band(ui: Ui, d: BandData) {
         <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
         <Text>{' '}</Text>
         <Text color={PAL.mute} dimColor>
-          {versionLabel()}
+          <Link href={releaseUrl()} label={versionLabel()} />
         </Text>
         {d.isQuiet ? null : (
           <Text>
