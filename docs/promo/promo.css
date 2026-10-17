@@ -1,0 +1,8 @@
+@import url("../assets/band.css");
+html,body{width:100%;height:100%}
+body{font-family:var(--sans);background:radial-gradient(900px 500px at 15% 0%,#241b66 0%,transparent 60%),radial-gradient(700px 500px at 100% 100%,#1b2a66 0%,transparent 60%),var(--bg);color:var(--ink);display:flex;flex-direction:column;justify-content:center;padding:70px 90px;overflow:hidden}
+h1{font-size:76px;line-height:1.02;letter-spacing:-.035em;font-weight:800}
+h1 em{font-style:normal;background:linear-gradient(90deg,#9d8dff,#6ee7a8);-webkit-background-clip:text;color:transparent}
+.sub{font-size:28px;color:var(--mute);margin-top:22px;line-height:1.4;max-width:1100px}
+.tag{font-family:var(--mono);color:var(--violet2);font-size:22px;letter-spacing:.04em;margin-bottom:26px}
+.foot{position:absolute;left:90px;bottom:48px;font-family:var(--mono);color:var(--dim);font-size:20px}

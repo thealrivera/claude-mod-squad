@@ -1,0 +1,30 @@
+<!doctype html><meta charset=utf-8><title>clicks</title><link rel=stylesheet href=promo.css>
+<style>
+body{padding:64px 80px}
+h1{font-size:62px}.sub{font-size:25px;margin-top:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:44px}
+.card{border-radius:20px;padding:30px 34px;border:1px solid var(--line);background:var(--panel)}
+.card.good{border-color:#4a3fb0;background:linear-gradient(180deg,#1a1745,#141830);box-shadow:0 30px 80px -40px rgba(125,102,255,.9)}
+.lab{font-family:var(--mono);font-size:19px;letter-spacing:.06em;color:var(--mute);margin-bottom:18px}
+.good .lab{color:var(--violet2)}
+.row{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0;border-top:1px solid var(--line);font-size:26px}
+.row:first-of-type{border-top:0}
+.row span:last-child{font-family:var(--mono);font-weight:800;font-size:34px}
+.bad .row span:last-child{color:var(--red)}.good .row span:last-child{color:var(--lime)}
+.big{margin-top:30px;font-size:30px;color:var(--mute)}.big b{color:var(--ink);font-size:56px;letter-spacing:-.03em;margin-right:10px;background:linear-gradient(90deg,#9d8dff,#6ee7a8);-webkit-background-clip:text;color:transparent}
+.fine{position:absolute;left:80px;bottom:36px;font-size:18px;color:var(--dim);font-family:var(--mono)}
+</style>
+<h1>Count the clicks. <em>Then stop making them.</em></h1>
+<div class=sub>Checking usage and changing model or effort, built in versus with the band.</div>
+<div class=grid>
+ <div class="card bad"><div class=lab>BUILT IN</div>
+  <div class=row><span>Check usage (/usage, Enter, close)</span><span>3</span></div>
+  <div class=row><span>Change effort (open, Effort, pick)</span><span>3</span></div>
+  <div class=row><span>Change model (open, pick)</span><span>2</span></div></div>
+ <div class="card good"><div class=lab>WITH THE BAND</div>
+  <div class=row><span>Check usage (it is just there)</span><span>0</span></div>
+  <div class=row><span>Change effort (click the chip)</span><span>1</span></div>
+  <div class=row><span>Change model (click the chip)</span><span>1</span></div></div>
+</div>
+<div class=big><b>~40 fewer clicks a day</b>for a typical heavy user. About 10,000 a year.</div>
+<div class=fine>Estimate: 12 usage checks, 6 effort changes, 4 model changes per day. Adjust it on the site.</div>
