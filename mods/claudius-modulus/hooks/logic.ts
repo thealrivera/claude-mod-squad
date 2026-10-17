@@ -115,6 +115,64 @@ export function weekPace(limit: Limit | undefined, now: number): WeekPace | unde
   return { projected: limit.percentUsed + perMs * msToReset, msToReset, msToEmpty, runsOut: msToEmpty < msToReset }
 }
 
+// The band holds still while the focus sits on one of its buttons. Nothing says when the
+// focus leaves (Escape, or a click back in the prompt), so the hold lapses on its own a
+// few seconds after the last move or press, and a hold of 0 means none.
+export const FOCUS_HOLD_MS = 8000
+export function isFocusHeld(focusedAt: number, now: number): boolean {
+  return focusedAt > 0 && now - focusedAt < FOCUS_HOLD_MS
+}
+
+// The week's time left: whole hours under a day, as the band shows it.
+export function fmtWeekLeft(ms: number): string {
+  return ms < 24 * HOUR ? `${Math.max(1, Math.round(ms / HOUR))}h` : fmtDur(ms)
+}
+
+// From this much of the week used, the band shows it beside the session bar.
+export const WEEK_SHOW_PCT = 50
+
+// The week in one line, for the toast a click on the session bar shows: what it has used,
+// where its pace so far ends it, and when it resets.
+export function weekSummary(limit: Limit | undefined, now: number): string {
+  if (!limit) return 'Week: no reading yet'
+  const used = `Week ${fmtPct(limit.percentUsed)} used`
+  const reset = resetMs(limit)
+  const resets = reset === undefined ? '' : `, resets in ${fmtDur(Math.max(0, reset - now))}`
+  const pace = weekPace(limit, now)
+  if (!pace) return `${used}${resets}`
+  if (pace.runsOut) return `${used}, runs out in ~${fmtWeekLeft(pace.msToEmpty)}${resets}`
+  return `${used}, projecting ${fmtPct(pace.projected)} at reset${resets}`
+}
+
+// Both windows in full, one line each, for the toast: used and left, when each resets, and
+// where its pace ends it.
+export function usageBreakdown(
+  five: Limit | undefined,
+  week: Limit | undefined,
+  samples: Sample[],
+  now: number,
+): string {
+  const lines: string[] = []
+  if (!five) {
+    lines.push('Session: no reading yet')
+  } else {
+    const fc = forecast(samples, five, now)
+    const parts = [`Session ${fmtPct(five.percentUsed)} used, ${fmtPct(Math.max(0, 100 - five.percentUsed))} left`]
+    if (fc.msToReset !== undefined) parts.push(`resets in ${fmtDur(fc.msToReset)}`)
+    if (fc.state === 'danger') parts.push(`runs out in ~${fmtDur(fc.msToEmpty)}`)
+    else if (fc.state === 'ok' || fc.state === 'tight') parts.push(`projecting ${fmtPct(Math.min(100, fc.projected))} at reset`)
+    else if (fc.state === 'limit') parts.push('limit hit')
+    lines.push(parts.join(', '))
+  }
+  if (!week) {
+    lines.push('Week: no reading yet')
+  } else {
+    const left = `${fmtPct(Math.max(0, 100 - week.percentUsed))} left`
+    lines.push(weekSummary(week, now).replace(' used', ` used, ${left}`))
+  }
+  return lines.join('\n')
+}
+
 export function fmtDur(ms: number | undefined): string {
   if (ms === undefined) return '?'
   const mins = Math.round(ms / MINUTE)

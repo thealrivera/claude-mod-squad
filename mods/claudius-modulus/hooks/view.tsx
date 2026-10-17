@@ -10,6 +10,7 @@ import {
   barWithMarkers,
   fmtDur,
   fmtPct,
+  fmtWeekLeft,
   forecast,
   markerIdx,
   prettyModel,
@@ -18,10 +19,12 @@ import {
   ramp,
   warnings,
   weekPace,
+  weekSummary,
+  WEEK_SHOW_PCT,
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
-import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel, ruleGlow } from './sprites'
+import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
 import { iconLoopSvg } from './icons'
 import { modelFamily } from './cycle'
 import { pieGlyph, ringSvg } from './work'
@@ -43,6 +46,7 @@ export type BandData = {
   onOpenServer: () => void | Promise<void>
   onCycleModel: () => void | Promise<void>
   onCycleEffort: () => void | Promise<void>
+  onSessionBar: () => void | Promise<void>
   limits: Limit[]
   samples: Sample[]
   costUsd: number | null
@@ -58,8 +62,23 @@ const WATCH = PAL.amber
 const BAD = PAL.red
 const NEUTRAL = '#8fb4ff'
 
-// The cursor's own colours: the bottom-left rule breathes between them, as the cursor does.
-const CURSOR_DIM = '#2b3050'
+// The weekly-usage bar under the session bar: a low block, three eighths tall, on a faint track.
+const WEEK_GLYPH = '▃'
+const WEEK_TRACK = '#2b3048'
+const WEEK_CELL_PX = 17
+const WEEK_BAR_PX = 6
+
+// The week bar as a drawing: one block per cell, filled to the share used. The <title> is
+// what a hover shows.
+export function weekBarSvg(cells: number, filled: number, tip: string): string {
+  const w = cells * WEEK_CELL_PX
+  const rects = Array.from(
+    { length: cells },
+    (_, i) =>
+      `<rect x="${i * WEEK_CELL_PX}" y="0" width="${WEEK_CELL_PX - 1}" height="${WEEK_BAR_PX}" fill="${i < filled ? PAL.violet : WEEK_TRACK}"/>`,
+  ).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${WEEK_BAR_PX}" width="${w}" height="${WEEK_BAR_PX}"><title>${tip}</title>${rects}</svg>`
+}
 
 // The collapse toggle's labels. It sits at the band's top right in both shapes, so one spot
 // folds the band and the same spot opens it again. The desktop draws a native button no wider than its label, so there a
@@ -71,6 +90,18 @@ const TOGGLE_LABEL = {
 } as const
 
 const DAY = 24 * 3_600_000
+
+// The keys of the band's buttons.
+const BAND_KEYS: readonly string[] = ['modelChip', 'effortChip', 'toggle', 'servers', 'sessionBar']
+
+// True when the keyboard ring sits on one of the band's buttons (ctrl+x tab, then the arrows).
+export function onBandButton(e: { element?: string; plugin?: string }): boolean {
+  return (
+    e.element !== undefined &&
+    BAND_KEYS.includes(e.element) &&
+    (e.plugin === undefined || e.plugin === 'claudius-modulus')
+  )
+}
 
 const STATUS: Record<Forecast['state'], string> = {
   none: NEUTRAL,
@@ -258,21 +289,6 @@ export function band(ui: Ui, d: BandData) {
   const blockCols = d.isCollapsed
     ? d.cols - toggleCols - 1 - 2 - chipsWidth - 2
     : Math.max(40, Math.min(70, d.cols - 60))
-  // The bottom border of the left block: a rule in the cursor's colours,
-  // fading from left to right, its brightness breathing with the cursor.
-  const ruleLight = ruleGlow(d.now)
-  const ruleStops = [CURSOR_DIM, PAL.violet]
-  const ruleCols = Math.max(1, d.cols - 4)
-  const rule = (
-    <Text wrap="truncate">
-      {Array.from({ length: ruleCols }, (_, i) => (
-        <Text key={String(i)} color={ramp(ruleStops, ruleLight * (0.3 + (0.7 * i) / Math.max(1, ruleCols - 1)))}>
-          ▔
-        </Text>
-      ))}
-    </Text>
-  )
-
   const toggle = (
     <Box flexShrink={0}>
       <Button
@@ -297,27 +313,33 @@ export function band(ui: Ui, d: BandData) {
 
   // ---- rows 2 and 3: the session bar, and the labels under its markers ---
 
-  // Things that only show up when they matter, so the row stays quiet.
+  // Things that only show up when they matter, so the row stays quiet. Most urgent first:
+  // a narrow row drops them from the end.
   const extras: { text: string; color: string }[] = []
   // The week shows when its pace runs out before it resets, in whole hours under a day, or
-  // once it is nearly used.
+  // once half of it is used.
   const wk = weekPace(week, d.now)
-  if (week && wk?.runsOut && week.percentUsed < 100) {
-    const left = wk.msToEmpty < DAY ? `${Math.max(1, Math.round(wk.msToEmpty / 3_600_000))}h` : fmtDur(wk.msToEmpty)
+  const weekOut = week !== undefined && wk?.runsOut === true && week.percentUsed < 100
+  if (weekOut) {
     extras.push({
-      text: `week out ~${left}`,
-      color: wk.msToEmpty < DAY || week.percentUsed >= 95 ? BAD : WATCH,
+      text: `week out ~${fmtWeekLeft(wk!.msToEmpty)}`,
+      color: wk!.msToEmpty < DAY || week!.percentUsed >= 95 ? BAD : WATCH,
     })
-  } else if (week && week.percentUsed >= 80) {
-    extras.push({ text: `week ${fmtPct(week.percentUsed)}`, color: week.percentUsed >= 95 ? BAD : WATCH })
   }
   if (d.ctxPercent !== null && d.ctxPercent >= 85) {
     extras.push({ text: `context ${fmtPct(d.ctxPercent)} full, /compact`, color: d.ctxPercent >= 95 ? BAD : WATCH })
+  }
+  if (!weekOut && week && week.percentUsed >= WEEK_SHOW_PCT) {
+    extras.push({
+      text: `week ${fmtPct(week.percentUsed)}`,
+      color: week.percentUsed >= 95 ? BAD : week.percentUsed >= 80 ? WATCH : NEUTRAL,
+    })
   }
 
   let barRow: RenderElement
   let usedLine: RenderElement | null = null
   let labelRow: RenderElement | null = null
+  let weekRow: RenderElement | null = null
 
   if (!five) {
     // No plan limits: say so plainly, and show cost only for API billing.
@@ -366,10 +388,13 @@ export function band(ui: Ui, d: BandData) {
     const showShort = msgCols > 0 && room(keep) - width * cellCols >= msgCols
     const cells = barWithMarkers(five.percentUsed, five.percentUsed, width, false)
 
+    // The reset time is a button: a click toasts the week's usage and where its pace ends
+    // it. Only that grey text is one, because a desktop draws a Button's contents in its
+    // own colour, which would bleach the bar's gradient.
     barRow = (
       <Box flexDirection="row">
-        <Box flexShrink={1}>
-          <Text wrap="truncate">
+        <Box flexShrink={0}>
+          <Text>
             {d.isCollapsed ? (
               <Text color={color} bold>
                 {pct}{' '}
@@ -380,7 +405,16 @@ export function band(ui: Ui, d: BandData) {
                 {cell.ch}
               </Text>
             ))}
-            <Text color={PAL.mute}>  {resets}</Text>
+            <Text>{'  '}</Text>
+          </Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Button key="sessionBar" plain onPress={d.onSessionBar}>
+            <Text color={PAL.mute}>{resets}</Text>
+          </Button>
+        </Box>
+        <Box flexShrink={1}>
+          <Text wrap="truncate">
             {showShort && short ? (
               <Text>
                 <Text color={PAL.mute}> · </Text>
@@ -400,6 +434,30 @@ export function band(ui: Ui, d: BandData) {
           </Text>
         </Box>
       </Box>
+    )
+
+    // The week under the bar, as wide as the bar: a thin shaded track, filled to the share of
+    // the 7-day limit used so far.
+    const weekCols = width * cellCols
+    const weekFill = Math.round((Math.min(100, Math.max(0, week?.percentUsed ?? 0)) / 100) * weekCols)
+    const weekCells = Array.from({ length: weekCols }, (_, i) => (
+      <Text key={String(i)} color={i < weekFill ? PAL.violet : WEEK_TRACK}>
+        {WEEK_GLYPH}
+      </Text>
+    ))
+    // On the desktop the bar is an SVG so hovering it shows a tooltip (its <title>) with the
+    // week's numbers; a glyph there is 17 px wide. A terminal keeps the text bar.
+    const tip = weekSummary(week, d.now).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    weekRow = Svg && d.surface !== 'terminal' ? (
+      <Svg
+        source={weekBarSvg(weekCols, weekFill, tip)}
+        alt={tip}
+        width={weekCols * WEEK_CELL_PX}
+        height={WEEK_BAR_PX}
+        isInteractive
+      />
+    ) : (
+      <Text wrap="truncate">{weekCells}</Text>
     )
 
     // The one marker's label and the forecast, starting at the bar's left edge.
@@ -499,9 +557,9 @@ export function band(ui: Ui, d: BandData) {
         <Box flexDirection="column" flexShrink={0}>
           {barRow}
           {labelRow}
+          {weekRow}
         </Box>
       </Box>
-      <Box flexDirection="row">{rule}</Box>
     </Box>
   )
 }

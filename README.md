@@ -19,7 +19,7 @@ See what is answering, how hard it is thinking, and when you will run out. Click
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ▌ claudius-modulus_ v1.8.3 - “A token burned is a token earned.”
+ ▌ claudius-modulus_ v1.9.2 - “A token burned is a token earned.”
 ```
 
 ## Why
@@ -100,13 +100,14 @@ Install from a terminal, not from inside the desktop app's Code tab: `/plugin in
 <details>
 <summary><b>Full feature reference</b></summary>
 
-### What it shows (v1.8.3)
+### What it shows (v1.9.2)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
   pace ends the window, dark is free. The text says when it resets and whether you will run out first. The week
-  shows when its pace so far would use it up before it resets (`week out ~11h`), or once it passes 80%. Context shows
-  past 85%, with a `/compact` hint.
+  shows when its pace so far would use it up before it resets (`week out ~11h`), or once it passes 50%. Click the reset
+  time for a toast with the week's usage, where its pace ends it, and when it resets. Context shows past 85%, with a
+  `/compact` hint.
 - **Second row:** ten token-maxxing one-liners, switching every 30 seconds. When a warning applies (extra `xhigh`
   or `max` effort, an ultracode or Workflow run, a full usage window) it takes every other switch, and a toast
   announces it the first time. `/cm quips off` turns the one-liners off and leaves the brand and its cursor;

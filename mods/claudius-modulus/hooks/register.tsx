@@ -8,20 +8,23 @@ import type {
 } from 'claude-code'
 
 import type { Limit, Override } from '../types'
-import { CM_USAGE, nextEffort, nextModel, parseCm, resolveModel } from './cycle'
+import { CM_USAGE, nextEffort, nextModel, parseCm, resolveModel, sameModel } from './cycle'
 import type { Dir } from './cycle'
 import {
   FIVE_HOUR,
   heavySetting,
+  isFocusHeld,
   isSimplePrompt,
   nextStreak,
   prettyModel,
   pushSample,
+  SEVEN_DAY,
   warnings,
+  usageBreakdown,
   worstRank,
 } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
-import { band } from './view'
+import { band, onBandButton } from './view'
 import { LSOF_ARGS, SERVERS_EVERY_MS, devServerUrl, summarizeDevServers } from './servers'
 
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
@@ -45,6 +48,20 @@ const costUsd = atom({ plugin: 'claudius-modulus', key: 'costUsd' } as const, nu
 const ctxPercent = atom({ plugin: 'claudius-modulus', key: 'ctxPercent' } as const, null)
 const tick = atom({ plugin: 'claudius-modulus', key: 'tick' } as const, 0)
 const servers = atom({ plugin: 'claudius-modulus', key: 'servers' } as const, null)
+// When the focus last moved onto, or pressed, one of the band's buttons (0: not on the
+// band). While that hold lasts (`isFocusHeld`) the band's own timers and the usage refresh
+// hold off; only what the press itself changes redraws it.
+const focusedAt = atom({ plugin: 'claudius-modulus', key: 'focusedAt' } as const, 0)
+
+async function holding($: EngineInterface): Promise<boolean> {
+  return isFocusHeld(await read($, focusedAt), await $.clock.now())
+}
+
+// A press on the band keeps the hold, so a run of clicks lands on steady buttons.
+async function hold($: EngineInterface) {
+  const now = await $.clock.now()
+  await update($, focusedAt, () => now)
+}
 
 type Measured = {
   context: SessionContextUsage
@@ -53,10 +70,13 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-// How often the band redraws on its own. Expanded: one small step of the rule's breathing
-// (the cursor still blinks once a second) (the desktop's level icon loops inside its own SVG, so nothing needs a
-// faster redraw). Collapsed: only the reset countdown shows, in minutes.
-const REDRAW_EVERY_MS = 250
+// How often the band redraws on its own. Expanded: one step of the cursor's blink and the
+// rule's breathing (the desktop's level icon loops inside its own SVG, so nothing needs a
+// faster redraw). A quicker redraw makes the band flash and drops clicks that land while a
+// button is rebuilt. Collapsed: only the reset countdown shows, in minutes. While the
+// keyboard focus sits on one of the band's buttons, nothing redraws it on its own (see
+// `focusedAt`), so a press lands on the button it was aimed at.
+const REDRAW_EVERY_MS = 1000
 const COLLAPSED_REDRAW_MS = 30_000
 const TIMER_SLACK_MS = 100
 
@@ -166,16 +186,19 @@ export const register: Register = on => {
     })
     // `tick` holds when the band last redrew on its own.
     $.clock.every(REDRAW_EVERY_MS, async () => {
+      if (await holding($)) return
       const step = (await read($, isCollapsed)) ? COLLAPSED_REDRAW_MS : REDRAW_EVERY_MS
       const now = await $.clock.now()
       if (now - (await read($, tick)) >= step - TIMER_SLACK_MS) await update($, tick, () => now)
     })
     $.clock.every(SERVERS_EVERY_MS, async () => {
+      if (await holding($)) return
       const n = await countServers($)
       await update($, servers, () => n)
     })
     void countServers($).then(n => update($, servers, () => n))
     $.clock.every(SYNC_EVERY_MS, async () => {
+      if (await holding($)) return
       const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
       if ((await read($, isCollapsed)) !== collapsed) await update($, isCollapsed, () => collapsed)
       const quiet = (await $.store.get(QUIET_KEY)) === true
@@ -184,7 +207,9 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // Skipped while the band has the focus; the next measure after it leaves catches up.
   on('session.measure', async ($, e, next) => {
+    if (await holding($)) return next(e)
     await ingest($, e)
     await alertIfWorse($)
     return next(e)
@@ -199,7 +224,7 @@ export const register: Register = on => {
     let o = await read($, override)
     if (o) {
       const changed =
-        (o.sawModel !== null && e.model !== o.sawModel) ||
+        (o.sawModel !== null && !sameModel(e.model, o.sawModel)) ||
         (o.sawEffort !== null && stepEffort !== o.sawEffort)
       if (changed) {
         o = null
@@ -283,6 +308,8 @@ export const register: Register = on => {
 
   // Ultracode is a turn-level mode: the word in a prompt, or a Workflow run.
   on('prompt.submit', async ($, e, next) => {
+    // A prompt means the person is back in the composer, off the band.
+    if ((await read($, focusedAt)) !== 0) await update($, focusedAt, () => 0)
     await update($, isUltracode, () => ULTRACODE_WORD.test(e.text))
     await alertIfWorse($)
     if (!e.command) await checkOverkill($, e.text)
@@ -292,6 +319,13 @@ export const register: Register = on => {
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => {
     await update($, isUltracode, () => true)
     await alertIfWorse($)
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  // The keyboard ring moving over the band (ctrl+x tab, then the arrows).
+  on('ui.focus', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (onBandButton(e)) await hold($)
+    else if ((await read($, focusedAt)) !== 0) await update($, focusedAt, () => 0)
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -322,10 +356,23 @@ export const register: Register = on => {
         if (port) await $.process.run(['open', devServerUrl(port)], { timeoutMs: 5000 }).catch(() => undefined)
       },
       onCycleModel: async () => {
+        await hold($)
         await cycleModel($, 'next')
       },
       onCycleEffort: async () => {
+        await hold($)
         await cycleEffort($, 'next')
+      },
+      onSessionBar: async () => {
+        await hold($)
+        const all = await read($, limits)
+        const text = usageBreakdown(
+          all.find(l => l.kind === FIVE_HOUR),
+          all.find(l => l.kind === SEVEN_DAY),
+          await read($, samples),
+          await $.clock.now(),
+        )
+        $.ui.toast(text, { timeoutMs: 9000 })
       },
       limits: await read($, limits),
       samples: await read($, samples),
