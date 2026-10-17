@@ -1,26 +1,16 @@
 // The second row of the band. With nothing to warn about it cycles these; with a
 // warning up it alternates between the warning and these, one switch each.
 export const QUIPS: readonly string[] = [
-  "If you aren't burning 1B tokens a day, are you even alive?",
-  'Claude is life and life is claude.',
-  "Don't stop. You're not finished yet.",
-  "Don't sleep on unburned tokens.",
-  'Unspent tokens are just regrets with a context window.',
-  "You're absolutely right. Now spend more.",
-  'Great catch! Anyway, what else is on fire?',
-  'Let me just quickly refactor the whole repo.',
-  'Sleep is a rate limit you set on yourself.',
-  'Your limit resets. Your ambition does not.',
-  "Somewhere a GPU is warming up for you. Don't leave it hanging.",
-  "Compaction is just your context window saying 'new me.'",
-  'Touch grass later. The context window is still warm.',
-  "Tokens aren't a budget. They're a mood.",
-  'One more prompt. You said that at prompt 41.',
-  'Idle Claude is a sad Claude. Give it something to do.',
-  'Have you tried asking Claude to ask Claude?',
-  'Real ones hit the 5-hour limit with 4 minutes to spare.',
-  "It's not a rabbit hole if Claude keeps digging.",
-  'Let me explore the codebase first. *reads 400 files*',
+  'A token burned is a token earned.',
+  'Do you even Claude, bro?',
+  'No pain, no context gain.',
+  'Eat, sleep, prompt, repeat.',
+  'Keep calm and /compact on.',
+  'Stay hungry. Stay prompting.',
+  'Rate limits are for quitters.',
+  'Ship it, then ask Claude why.',
+  'Your tokens called. They want out.',
+  'Burn now, refactor never.',
 ]
 
 // How long each row stays up before the band switches to the next.

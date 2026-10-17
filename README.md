@@ -5,7 +5,7 @@ burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ▌ claudius-modulus_ v1.8.1 - “If you aren't burning 1B tokens a day, are you even alive?”
+ ▌ claudius-modulus_ v1.8.2 - “A token burned is a token earned.”
 ```
 
 ## Install in one step
@@ -50,14 +50,14 @@ That's all. The steps below are what it will follow, so you can also run them yo
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## What it shows (v1.8.1)
+## What it shows (v1.8.2)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
   pace ends the window, dark is free. The text says when it resets and whether you will run out first. The week
   shows when its pace so far would use it up before it resets (`week out ~11h`), or once it passes 80%. Context shows
   past 85%, with a `/compact` hint.
-- **Second row:** twenty token-maxxing one-liners, switching every 30 seconds. When a warning applies (extra `xhigh`
+- **Second row:** ten token-maxxing one-liners, switching every 30 seconds. When a warning applies (extra `xhigh`
   or `max` effort, an ultracode or Workflow run, a full usage window) it takes every other switch, and a toast
   announces it the first time. `/cm quips off` turns the one-liners off and leaves the brand and its cursor;
   `/cm quips on` brings them back. The choice is remembered between sessions, and other open sessions follow it
