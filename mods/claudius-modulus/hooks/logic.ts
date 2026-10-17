@@ -186,6 +186,39 @@ export function warnings(
   return out.sort((a, b) => WARN_RANK[b.kind] - WARN_RANK[a.kind])
 }
 
+// ---- overkill ------------------------------------------------------------
+// A heuristic, not a verdict: a short prompt with no code, paths or work verbs reads as a
+// quick back and forth. Running ultracode, xhigh or max effort on it burns the limit for
+// nothing, so the band says so, once per streak.
+export const OVERKILL_MAX_CHARS = 160
+export const OVERKILL_STREAK = 2
+const WORK_WORD =
+  /\b(implement|refactor|build|migrate|rewrite|debug|deploy|audit|review|investigate|fix|write|create|add|remove|rename|test|plan|design|analy[sz]e)\b/i
+const CODE_SIGN = /```|`[^`]+`|\S+\.[a-z]{1,5}\b|[/\\]\w|[{}();=<>]/i
+
+export function isSimplePrompt(text: string): boolean {
+  const t = text.trim()
+  if (t.length === 0 || t.length > OVERKILL_MAX_CHARS) return false
+  if (t.includes('\n')) return false
+  return !WORK_WORD.test(t) && !CODE_SIGN.test(t)
+}
+
+// What is running hot, in words, or null when the settings are fine for any task.
+export function heavySetting(effort: string | null, isUltracode: boolean): string | null {
+  if (isUltracode) return 'Ultracode'
+  if (effort === 'max') return 'Max effort'
+  if (effort === 'xhigh') return 'XHigh effort'
+  return null
+}
+
+// The run of simple prompts under heavy settings. It toasts once, when the run reaches
+// OVERKILL_STREAK, and starts over after any other prompt.
+export function nextStreak(prev: number, simple: boolean, heavy: boolean): { streak: number; toast: boolean } {
+  if (!simple || !heavy) return { streak: 0, toast: false }
+  const streak = prev + 1
+  return { streak, toast: streak === OVERKILL_STREAK }
+}
+
 export function worstRank(list: Warning[]): number {
   return list.reduce((n, w) => Math.max(n, WARN_RANK[w.kind]), 0)
 }

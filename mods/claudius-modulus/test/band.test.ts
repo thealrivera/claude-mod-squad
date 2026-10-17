@@ -1,7 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { FRAMES, ICON_NUDGE, iconSvg } from '../hooks/icons'
-import { onBandButton } from '../hooks/view'
 import { countDevServers, devServerUrl, summarizeDevServers } from '../hooks/servers'
 
 const PROPS = {
@@ -24,7 +23,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.8\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.8\.1$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -114,12 +113,12 @@ for (const surface of ['terminal', 'desktop'] as const) {
     // the quip has its own line, so it shows even in a normal-width band
     expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.8\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.8\.1$/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
     // the version rides after the brand, so it gives way to the warning
-    expect(await ui.find({ type: 'Text', text: /^v1\.8\.0$/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.8\.1$/ })).toBeUndefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -179,7 +178,7 @@ test('the quip and the verdict both show, in a wide band too', async ($, on) => 
   await $.session.measure(reading(20, 30))
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Projecting you hit|Limit in/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Projecting|Limit in/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -564,15 +563,6 @@ for (const level of [1, 2, 3, 4, 5] as const) {
     expect(near(vy + side / 2)).toBe(near((minY + maxY) / 2))
   })
 }
-
-test('only the band\'s own buttons light the band on the keyboard focus', () => {
-  expect(onBandButton({ element: 'modelChip' })).toBe(true)
-  expect(onBandButton({ element: 'effortChip', plugin: 'claudius-modulus' })).toBe(true)
-  expect(onBandButton({ element: 'toggle' })).toBe(true)
-  expect(onBandButton({})).toBe(false)
-  expect(onBandButton({ element: 'something-else' })).toBe(false)
-  expect(onBandButton({ element: 'modelChip', plugin: 'other-mod' })).toBe(false)
-})
 
 test('the dev servers counted from lsof are the processes that run python, node or the like on a dev port', () => {
   const out = [

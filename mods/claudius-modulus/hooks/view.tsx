@@ -37,7 +37,6 @@ export type BandData = {
   isPlan: boolean
   isCollapsed: boolean
   isQuiet: boolean
-  focused: boolean
   servers: { count: number; port: number | null } | null
   work: Work | null
   onToggle: () => void | Promise<void>
@@ -61,12 +60,6 @@ const NEUTRAL = '#8fb4ff'
 
 // The cursor's own colours: the bottom-left rule breathes between them, as the cursor does.
 const CURSOR_DIM = '#2b3050'
-// The band's focus colour, bright orange, and its dim end for the breathing rule.
-const FOCUS_ORANGE = '#ff7a00'
-const FOCUS_DIM = '#7a3b00'
-
-// The band's own buttons, by the key each one is drawn under.
-const BAND_KEYS = ['toggle', 'modelChip', 'effortChip']
 
 // The collapse toggle's labels. It sits at the band's top right in both shapes, so one spot
 // folds the band and the same spot opens it again. The desktop draws a native button no wider than its label, so there a
@@ -78,15 +71,6 @@ const TOGGLE_LABEL = {
 } as const
 
 const DAY = 24 * 3_600_000
-
-// True when the keyboard ring sits on one of the band's buttons (ctrl+x tab, then the arrows).
-export function onBandButton(e: { element?: string; plugin?: string }): boolean {
-  return (
-    e.element !== undefined &&
-    BAND_KEYS.includes(e.element) &&
-    (e.plugin === undefined || e.plugin === 'claudius-modulus')
-  )
-}
 
 const STATUS: Record<Forecast['state'], string> = {
   none: NEUTRAL,
@@ -211,29 +195,28 @@ export function band(ui: Ui, d: BandData) {
   }
 
   // The forecast, in words.
-  const early = (fc.msToReset ?? 0) - (fc.msToEmpty ?? 0)
   let verdict = ''
   let verdictColor: string = PAL.mute
   if (five) {
     switch (fc.state) {
       case 'danger':
-        verdict = `Limit in ~${fmtDur(fc.msToEmpty)}, ${fmtDur(early)} before reset.`
+        verdict = `Limit in ~${fmtDur(fc.msToEmpty)}`
         verdictColor = BAD
         break
       case 'ok':
       case 'tight':
-        verdict = `Projecting you hit ${fmtPct(Math.min(100, fc.projected))}.`
+        verdict = `Projecting ${fmtPct(Math.min(100, fc.projected))}`
         verdictColor = fc.state === 'ok' ? GOOD : WATCH
         break
       case 'limit':
-        verdict = 'Limit reached. It resets when the timer runs out.'
+        verdict = 'Limit reached'
         verdictColor = BAD
         break
       case 'idle':
-        verdict = 'Quiet right now, nothing is burning.'
+        verdict = 'Quiet'
         break
       default:
-        verdict = 'Still learning your pace.'
+        verdict = 'Learning pace'
     }
   }
 
@@ -274,13 +257,12 @@ export function band(ui: Ui, d: BandData) {
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
   const blockCols = d.isCollapsed
     ? d.cols - toggleCols - 1 - 2 - chipsWidth - 2
-    : d.cols - leftCols - 4 - ringCols
+    : Math.max(40, Math.min(70, d.cols - 60))
   // The bottom border of the left block: a rule in the cursor's colours,
-  // fading from left to right, its brightness breathing with the cursor. Orange while the
-  // band has the focus.
+  // fading from left to right, its brightness breathing with the cursor.
   const ruleLight = ruleGlow(d.now)
-  const ruleStops = d.focused ? [FOCUS_DIM, FOCUS_ORANGE] : [CURSOR_DIM, PAL.violet]
-  const ruleCols = Math.max(1, leftCols)
+  const ruleStops = [CURSOR_DIM, PAL.violet]
+  const ruleCols = Math.max(1, d.cols - 4)
   const rule = (
     <Text wrap="truncate">
       {Array.from({ length: ruleCols }, (_, i) => (
@@ -455,17 +437,11 @@ export function band(ui: Ui, d: BandData) {
       </Text>
     ) : (
       <Text wrap="truncate">
-        {[...BRAND].map((c, i, a) =>
-          d.focused ? (
-            <Text key={String(i)} bold color={FOCUS_ORANGE}>
-              {c}
-            </Text>
-          ) : (
-            <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
-              {c}
-            </Text>
-          ),
-        )}
+        {[...BRAND].map((c, i, a) => (
+          <Text key={String(i)} dimColor color={ramp([PAL.violet, PAL.cyan], i / (a.length - 1))}>
+            {c}
+          </Text>
+        ))}
         <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
         <Text>{' '}</Text>
         <Text color={PAL.mute} dimColor>
@@ -517,13 +493,13 @@ export function band(ui: Ui, d: BandData) {
           </Box>
         </Box>
         {ring}
-        <Box flexDirection="column" flexShrink={1}>
+      </Box>
+      <Box flexDirection="row" justifyContent="space-between" alignItems="flex-end" gap={2}>
+        <Box flexShrink={1}>{last}</Box>
+        <Box flexDirection="column" flexShrink={0}>
           {barRow}
           {labelRow}
         </Box>
-      </Box>
-      <Box flexDirection="row">
-        <Box flexShrink={1}>{last}</Box>
       </Box>
       <Box flexDirection="row">{rule}</Box>
     </Box>
