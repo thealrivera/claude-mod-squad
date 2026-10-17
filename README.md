@@ -5,7 +5,7 @@ burn through it.
 
 ```
  ◆ Sonnet 5.5  ◉ xhigh  Session ████████░░░░░░░░ 31%  resets 3h 55m · runs out in ~2h 30m
- ▌ claudius-modulus - “If you aren't burning 1B tokens a day, are you even alive?”            v1.7.0
+ ▌ claudius-modulus_ v1.8.0 - “If you aren't burning 1B tokens a day, are you even alive?”
 ```
 
 ## Install in one step
@@ -50,7 +50,7 @@ That's all. The steps below are what it will follow, so you can also run them yo
 Install from a terminal, not from inside the desktop app's Code tab: `/plugin install` is not available there, but the
 `claude plugin ...` commands above work from any terminal or from Claude's Bash tool.
 
-## What it shows (v1.7.0)
+## What it shows (v1.8.0)
 
 - **Model and effort chips:** what is answering, and how hard it is thinking.
 - **Session bar (Claude plans):** share of your 5-hour usage window used. Solid is used, dim is where your current
@@ -68,7 +68,7 @@ Install from a terminal, not from inside the desktop app's Code tab: `/plugin in
 - **Level meter:** a five-bar symbol under the model chip (`▂▃▅▇█`, one bar lit to all five) with a name (You have work to do, Warming Up, Tokenizing, Tokenmaxxing, Tokenzilla), shown as "Level N - name": how well you are pacing toward using every token.
 - **Background work ring:** while sub-agents, workflow agents or background agents run, a ring in the middle shows how many have finished and an estimated time to completion (a pie and a count in a terminal).
 - **Collapse:** the button at the top left (`− Less` on the desktop, `[ − ]` in a terminal) folds the band to one line (a tiny level glyph, the model and effort chips, the bar and the reset time). The same spot (`+ More`, `[ + ]`) brings it back. It sits at the left so it is never mistaken for Claude Code's own `[-]` at the right end, which collapses the whole band. The choice is remembered between sessions, and other open sessions fold or open with it within a couple of seconds. Collapsed, the chips shorten (`S 5.5`, `Low`), the session % leads the bar, and a short `Projected:` forecast sits beside it when there is room.
-- **Brand and version:** a blinking cursor and `claudius-modulus` lead the quote row at the lower left, and a rule above the session block breathes in the cursor's colours; at the lower right, the band shows how many local dev servers are listening (python, node, workerd and the like, on a port from 1024 to 9999, counted with lsof every 15 seconds), then the version.
+- **Brand and version:** a blinking cursor, `claudius-modulus` and the version lead the quote row at the lower left, and a rule below it breathes slowly in the cursor's colours; on the top row, left of the collapse button, the band shows how many local dev servers are listening (python, node, workerd and the like, on a port from 1024 to 9999, counted with lsof every 15 seconds).
 
 ## Updates
 

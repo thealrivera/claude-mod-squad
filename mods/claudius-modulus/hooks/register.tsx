@@ -44,11 +44,11 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-// How often the band redraws on its own. Expanded: one step of the cursor's blink and the
-// rule's breathing (the desktop's level icon loops inside its own SVG, so nothing needs a
+// How often the band redraws on its own. Expanded: one small step of the rule's breathing
+// (the cursor still blinks once a second) (the desktop's level icon loops inside its own SVG, so nothing needs a
 // faster redraw). With the focus on one of its buttons: seldom, so a click lands on the
 // button it was aimed at. Collapsed: only the reset countdown shows, in minutes.
-const REDRAW_EVERY_MS = 1000
+const REDRAW_EVERY_MS = 250
 const FOCUSED_REDRAW_MS = 5000
 const COLLAPSED_REDRAW_MS = 30_000
 const TIMER_SLACK_MS = 100
