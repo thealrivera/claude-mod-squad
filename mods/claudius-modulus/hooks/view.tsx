@@ -17,11 +17,12 @@ import {
   shortModel,
   ramp,
   warnings,
+  weekPace,
 } from './logic'
 import type { Forecast, WarnKind } from './logic'
 import { QUIPS, rowFor } from './quips'
 import { CURSOR, cursorGlow, LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from './sprites'
-import { iconSvg } from './icons'
+import { iconLoopSvg } from './icons'
 import { modelFamily } from './cycle'
 import { pieGlyph, ringSvg } from './work'
 import type { Work } from './work'
@@ -35,6 +36,7 @@ export type BandData = {
   isUltracode: boolean
   isPlan: boolean
   isCollapsed: boolean
+  isQuiet: boolean
   focused: boolean
   servers: number | null
   work: Work | null
@@ -64,6 +66,18 @@ const FOCUS_DIM = '#7a3b00'
 
 // The band's own buttons, by the key each one is drawn under.
 const BAND_KEYS = ['toggle', 'modelChip', 'effortChip']
+
+// The collapse toggle's labels. It leads the band's top row in both shapes, so one spot
+// folds the band and the same spot opens it again, well away from the engine's own `[-]`
+// at the right end. The desktop draws a native button no wider than its label, so there a
+// word beside the sign makes a target a click can find; the terminal's `[ + ]` is already
+// five cells wide, and a narrow band needs the room.
+const TOGGLE_LABEL = {
+  terminal: { expanded: '−', collapsed: '+' },
+  wide: { expanded: '− Less', collapsed: '+ More' },
+} as const
+
+const DAY = 24 * 3_600_000
 
 // True when the keyboard ring sits on one of the band's buttons (ctrl+x tab, then the arrows).
 export function onBandButton(e: { element?: string; plugin?: string }): boolean {
@@ -154,12 +168,14 @@ export function band(ui: Ui, d: BandData) {
 
   // On the desktop: a square pixel icon for the level beside the chips, and the name under
   // them. In a terminal there is no square image, so the five-bar meter and the name stay.
+  // The icon loops inside its own SVG frame, so its source holds still between redraws.
   const sprite = Svg ? (
     <Svg
-      source={iconSvg(level, levelColor(level), d.now)}
+      source={iconLoopSvg(level, levelColor(level))}
       alt={`Pacing level ${level} of 5: ${LEVEL_NAMES[level - 1]}`}
       width={30}
       height={30}
+      isInteractive
     />
   ) : null
   const levelLine = Svg ? (
@@ -250,17 +266,21 @@ export function band(ui: Ui, d: BandData) {
     ? model.length + 2 + (d.effort ? 1 + effortText.length + 2 : 0)
     : model.length + 4 + (d.effort ? 1 + d.effort.length + 5 : 0)
   const leftCols = Math.max(chipsWidth, 5 * cellCols + 36) + (Svg ? 4 : 0)
-  // The toggle takes 5 columns at the right edge. Collapsed, the block shares the one
-  // line with a one-character sprite, the chips and the toggle.
+  const toggleLabel = d.surface === 'terminal' ? TOGGLE_LABEL.terminal : TOGGLE_LABEL.wide
+  // Text columns the toggle takes: the terminal draws it `[ label ]`.
+  const toggleCols = toggleLabel.expanded.length + 4
+  // Collapsed, the block shares the one line with the toggle, a one-character sprite and
+  // the chips.
   const ringCols = d.work && !d.isCollapsed ? (Svg ? 6 : 16) : 0
   const blockCols = d.isCollapsed
-    ? d.cols - 2 - chipsWidth - 2 - 5
+    ? d.cols - toggleCols - 1 - 2 - chipsWidth - 2
     : d.cols - leftCols - 4 - ringCols
-  // The top border of the left block: a rule in the cursor's colours, fading from left to
-  // right, its brightness breathing with the cursor. Orange while the band has the focus.
+  // The top border of the left block, after the toggle: a rule in the cursor's colours,
+  // fading from left to right, its brightness breathing with the cursor. Orange while the
+  // band has the focus.
   const ruleGlow = cursorGlow(d.now)
   const ruleStops = d.focused ? [FOCUS_DIM, FOCUS_ORANGE] : [CURSOR_DIM, PAL.violet]
-  const ruleCols = Math.max(1, leftCols)
+  const ruleCols = Math.max(1, leftCols - toggleCols - 1)
   const rule = (
     <Text wrap="truncate">
       {Array.from({ length: ruleCols }, (_, i) => (
@@ -272,7 +292,13 @@ export function band(ui: Ui, d: BandData) {
   )
 
   const toggle = (
-    <Button key="toggle" label={d.isCollapsed ? ' + ' : ' − '} onPress={d.onToggle} />
+    <Box flexShrink={0}>
+      <Button
+        key="toggle"
+        label={d.isCollapsed ? toggleLabel.collapsed : toggleLabel.expanded}
+        onPress={d.onToggle}
+      />
+    </Box>
   )
   const brand = (
     <Box flexDirection="row" gap={2}>
@@ -291,11 +317,20 @@ export function band(ui: Ui, d: BandData) {
 
   // Things that only show up when they matter, so the row stays quiet.
   const extras: { text: string; color: string }[] = []
-  if (week && week.percentUsed >= 80) {
+  // The week shows when its pace runs out before it resets, in whole hours under a day, or
+  // once it is nearly used.
+  const wk = weekPace(week, d.now)
+  if (week && wk?.runsOut && week.percentUsed < 100) {
+    const left = wk.msToEmpty < DAY ? `${Math.max(1, Math.round(wk.msToEmpty / 3_600_000))}h` : fmtDur(wk.msToEmpty)
+    extras.push({
+      text: `week out ~${left}`,
+      color: wk.msToEmpty < DAY || week.percentUsed >= 95 ? BAD : WATCH,
+    })
+  } else if (week && week.percentUsed >= 80) {
     extras.push({ text: `week ${fmtPct(week.percentUsed)}`, color: week.percentUsed >= 95 ? BAD : WATCH })
   }
   if (d.ctxPercent !== null && d.ctxPercent >= 85) {
-    extras.push({ text: `context ${fmtPct(d.ctxPercent)} full`, color: d.ctxPercent >= 95 ? BAD : WATCH })
+    extras.push({ text: `context ${fmtPct(d.ctxPercent)} full, /compact`, color: d.ctxPercent >= 95 ? BAD : WATCH })
   }
 
   let barRow: RenderElement
@@ -432,14 +467,18 @@ export function band(ui: Ui, d: BandData) {
           ),
         )}
         <Text color={ramp(['#2b3050', PAL.violet], glow)}>{CURSOR}</Text>
-        <Text color={PAL.mute} dimColor>
-          {' - '}
-        </Text>
-        <Text color={PAL.mute} italic>
-          {'“'}
-          {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
-          {'”'}
-        </Text>
+        {d.isQuiet ? null : (
+          <Text>
+            <Text color={PAL.mute} dimColor>
+              {' - '}
+            </Text>
+            <Text color={PAL.mute} italic>
+              {'“'}
+              {QUIPS[pick.kind === 'quip' ? pick.index : 0]}
+              {'”'}
+            </Text>
+          </Text>
+        )}
       </Text>
     )
 
@@ -447,21 +486,21 @@ export function band(ui: Ui, d: BandData) {
     const g = levelGlyph(level)
     return (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexDirection="row" gap={1}>
+        <Box flexDirection="row" gap={1} flexShrink={0}>
+          {toggle}
           <Text color={g.color}>{g.ch}</Text>
           {chips}
         </Box>
         <Box flexShrink={1}>{barRow}</Box>
-        {toggle}
       </Box>
     )
   }
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Box flexShrink={1}>{rule}</Box>
+      <Box flexDirection="row" gap={1}>
         {toggle}
+        <Box flexShrink={1}>{rule}</Box>
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexDirection="row" gap={2} alignSelf="flex-start" alignItems="center">

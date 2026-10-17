@@ -36,10 +36,11 @@ export function levelGlyph(level: 1 | 2 | 3 | 4 | 5): PixelCell {
 }
 
 // The blinking cursor after the brand: an underscore that fades in and out on a cosine,
-// so it eases like a calm blink rather than snapping on and off.
+// so it eases like a calm blink rather than snapping on and off. One step a second, the
+// band's own redraw, so the cursor never makes the band redraw faster.
 export const CURSOR = '_'
-export const CURSOR_MS = 200
-const CURSOR_FRAMES = 6
+export const CURSOR_MS = 1000
+const CURSOR_FRAMES = 4
 
 // 1 = fully lit, 0 = faded into the background.
 export function cursorGlow(now: number): number {

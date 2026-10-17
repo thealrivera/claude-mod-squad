@@ -43,20 +43,40 @@ export function resolveModel(name: string): string {
   return hit ? hit.id : name
 }
 
+// A full Claude model id, with an optional context tag: "claude-opus-4-1", "claude-opus-5-5[1m]".
+const MODEL_ID = /^claude-[a-z]+-\d+(-\d+)*(\[[a-z0-9]+\])?$/
+
+// True for a word /cm can send as a model: a family the list knows, or a full Claude id.
+// Anything else would ride on every request and fail it, so it is refused instead.
+export function isModelName(name: string): boolean {
+  const n = name.toLowerCase()
+  return MODELS.some(m => m.family === n) || MODEL_ID.test(n)
+}
+
 export type CmRequest =
   | { kind: 'model'; value: Dir | string }
   | { kind: 'effort'; value: Dir | string }
+  | { kind: 'quips'; value: 'on' | 'off' | 'toggle' }
   | { kind: 'off' }
   | { kind: 'help' }
 
 export const CM_USAGE =
-  'Usage: /cm model [next|prev|fable|opus|sonnet|haiku|<id>], /cm effort [next|prev|low|medium|high|xhigh|max], /cm off'
+  'Usage: /cm model [next|prev|fable|opus|sonnet|haiku|claude-<id>], /cm effort [next|prev|low|medium|high|xhigh|max], /cm quips [on|off], /cm off'
 
-// The words after /cm. A bare "model" or "effort" means next.
+// The words after /cm. A bare "model" or "effort" means next; a bare "quips" flips them.
 export function parseCm(args: string): CmRequest {
-  const [what = '', value = 'next'] = args.trim().toLowerCase().split(/\s+/)
+  const words = args.trim().toLowerCase().split(/\s+/)
+  const [what = ''] = words
+  if (what === 'quips' || what === 'q') {
+    const v = words[1] ?? 'toggle'
+    return v === 'on' || v === 'off' || v === 'toggle' ? { kind: 'quips', value: v } : { kind: 'help' }
+  }
+  const value = words[1] ?? 'next'
   if (what === 'off' || what === 'reset') return { kind: 'off' }
-  if (what === 'model' || what === 'm') return { kind: 'model', value }
+  if (what === 'model' || what === 'm') {
+    if (value !== 'next' && value !== 'prev' && !isModelName(value)) return { kind: 'help' }
+    return { kind: 'model', value }
+  }
   if (what === 'effort' || what === 'e') {
     if (value !== 'next' && value !== 'prev' && !EFFORTS.includes(value)) return { kind: 'help' }
     return { kind: 'effort', value }
