@@ -10,7 +10,7 @@ run-out forecast, effort and ultracode warnings, a background-work ring, and a r
 - `mods/claudius-modulus/hooks/`: runtime code.
   - `register.tsx`: entry module (listed in `hooks.json` `modules`); reads `claudius-modulus.*` state.
   - `view.tsx`: band rendering. `logic.ts`: bar, forecast, pacing and level math. `work.ts`: background-work ring.
-  - `cycle.ts`: model and effort cycling, the `/cm` words. `servers.ts`: the lsof dev-server count. `quips.ts`: the 20 pep-talk lines. `icons.ts`, `sprites.ts`: pixel icons. `version.ts`: band version label.
+  - `cycle.ts`: model and effort cycling, the `/cm` words. `servers.ts`: the lsof dev-server count. `quips.ts`: the 10 pep-talk lines. `icons.ts`, `sprites.ts`: pixel icons. `version.ts`: band version label.
 - `mods/claudius-modulus/test/`: `logic.test.ts`, `band.test.ts` (import from `claude-code/testing`).
 - `mods/claudius-modulus/types/index.d.ts`: shared types (also referenced from the plugin manifest `types` field).
 

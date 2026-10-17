@@ -196,12 +196,12 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.8.1')
+  expect(versionLabel(VERSION)).toBe('v1.8.2')
 })
 
-test('there are twenty quips, each short, distinct and free of em dashes', () => {
-  expect(QUIPS.length).toBe(20)
-  expect(new Set(QUIPS).size).toBe(20)
+test('there are ten quips, each short, distinct and free of em dashes', () => {
+  expect(QUIPS.length).toBe(10)
+  expect(new Set(QUIPS).size).toBe(10)
   for (const q of QUIPS) {
     expect(q.length).toBeLessThanOrEqual(70)
     expect(q.includes('\u2014')).toBe(false)
@@ -210,12 +210,12 @@ test('there are twenty quips, each short, distinct and free of em dashes', () =>
 
 test('with no warning the second row steps through every quip, then starts over', () => {
   const t0 = 1000 * ROTATE_MS
-  const seen = Array.from({ length: 21 }, (_, i) => rowFor(t0 + i * ROTATE_MS, false))
+  const seen = Array.from({ length: 11 }, (_, i) => rowFor(t0 + i * ROTATE_MS, false))
   expect(seen.every(r => r.kind === 'quip')).toBe(true)
   const idx = seen.map(r => (r.kind === 'quip' ? r.index : -1))
-  expect(new Set(idx.slice(0, 20)).size).toBe(20)
-  expect(idx[20]).toBe(idx[0])
-  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
+  expect(new Set(idx.slice(0, 10)).size).toBe(10)
+  expect(idx[10]).toBe(idx[0])
+  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 10)
 })
 
 test('a row holds for the whole switch interval', () => {
@@ -230,8 +230,8 @@ test('with a warning it takes every other switch and the quips carry on in order
   expect(kinds).toEqual(['alert', 'quip', 'alert', 'quip', 'alert', 'quip'])
   const quips = [1, 3, 5, 7].map(i => rowFor(t0 + i * ROTATE_MS, true))
   const idx = quips.map(r => (r.kind === 'quip' ? r.index : -1))
-  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 20)
-  expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 20)
+  expect(idx[1]).toBe(((idx[0] ?? 0) + 1) % 10)
+  expect(idx[2]).toBe(((idx[1] ?? 0) + 1) % 10)
 })
 
 test('two markers: Burned where usage stands, Pace Burn where the pace ends the window', () => {
