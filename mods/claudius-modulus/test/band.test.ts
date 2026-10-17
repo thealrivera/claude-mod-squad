@@ -23,7 +23,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Link', text: /^v1\.8\.3$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Link', text: /^v1\.9\.2$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -113,12 +113,12 @@ for (const surface of ['terminal', 'desktop'] as const) {
     // the quip has its own line, so it shows even in a normal-width band
     expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Link', text: /^v1\.8\.3$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Link', text: /^v1\.9\.2$/ })).toBeDefined()
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
     // the version rides after the brand, so it gives way to the warning
-    expect(await ui.find({ type: 'Link', text: /^v1\.8\.3$/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Link', text: /^v1\.9\.2$/ })).toBeUndefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -283,7 +283,7 @@ test('the cursor after the brand blinks on its own as the clock runs', async ($,
   await ui.unmount()
 })
 
-test('the expanded band draws the bottom-left rule in the cursor\'s colours', async ($, on) => {
+test('the expanded band draws the weekly bar under the session bar', async ($, on) => {
   mock.clock(on, { now: T0 })
   mock.store(on)
   on('session.measure', (_$, e) => ({ changed: e.changed }))
@@ -293,8 +293,10 @@ test('the expanded band draws the bottom-left rule in the cursor\'s colours', as
     component: 'AbovePrompt',
     props: PROPS,
   })
+  await $.session.measure(reading(20, 52))
   await ui.redraw()
-  expect(await ui.find({ type: 'Text', text: /▔/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /▃/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /▔/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -541,6 +543,37 @@ test('a nearly full context says how to free it, and a week that will not last s
   expect(await ui.find({ type: 'Text', text: /context 90% full, \/compact/ })).toBeDefined()
   // four days in at 70%: the last 30% lasts under two of the three days left
   expect(await ui.find({ type: 'Text', text: /^week out ~1d \d+h$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a week half used shows beside the bar, and a click on the bar toasts the week', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  const toasts: string[] = []
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('ui.toast', (_$, e) => {
+    toasts.push(e.text)
+    return { value: undefined } as never
+  })
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { ...PROPS, bodyColumns: 160 },
+  })
+  // four days in at 52%: the pace lasts, ending the week near 91%
+  await $.session.measure(reading(20, 52))
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /^week 52%$/ })).toBeDefined()
+  // only the reset time is the button: a desktop would bleach a bar drawn inside one
+  const button = await ui.find({ type: 'Button', key: 'sessionBar' })
+  expect(JSON.stringify(button)).toMatch(/resets in/)
+  expect(JSON.stringify(button)).not.toMatch(/[█▓▒░▏▎▍▌▋▊▉]/)
+  await ui.press({ key: 'sessionBar' })
+  // the toast gives both windows in full: session on one line, week on the next
+  expect(toasts.at(-1)).toBe(
+    'Session 20% used, 80% left, resets in 2h, projecting 33% at reset\nWeek 52% used, 48% left, projecting 91% at reset, resets in 3d',
+  )
   await ui.unmount()
 })
 

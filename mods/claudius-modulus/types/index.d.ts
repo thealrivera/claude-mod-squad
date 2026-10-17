@@ -20,7 +20,8 @@ declare module 'claude-code' {
       isPlan: boolean
       isCollapsed: boolean
       isQuiet: boolean
-      servers: number | null
+      servers: { count: number; port: number | null } | null
+      focusedAt: number
       agents: AgentRec[]
       limits: Limit[]
       samples: Sample[]

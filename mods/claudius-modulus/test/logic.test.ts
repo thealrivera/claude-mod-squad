@@ -22,11 +22,25 @@ import {
   ramp,
   warnings,
   weekPace,
+  weekSummary,
+  isFocusHeld,
+  FOCUS_HOLD_MS,
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
 import { FRAMES, FRAME_MS, ICONS, iconFrame, iconLoopSvg, iconSvg } from '../hooks/icons'
-import { EFFORTS, MODELS, isModelName, modelFamily, nextEffort, nextModel, parseCm, resolveModel } from '../hooks/cycle'
+import {
+  EFFORTS,
+  MODELS,
+  isModelName,
+  modelFamily,
+  nextEffort,
+  nextModel,
+  parseCm,
+  resolveModel,
+  sameModel,
+} from '../hooks/cycle'
+import { onBandButton } from '../hooks/view'
 import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
@@ -196,7 +210,7 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.8.3')
+  expect(versionLabel(VERSION)).toBe('v1.9.2')
 })
 
 test('there are ten quips, each short, distinct and free of em dashes', () => {
@@ -407,6 +421,29 @@ test('each icon is a loop of 12 by 12 frames that holds still in its box', () =>
   expect(FRAME_MS[0]!).toBeGreaterThan(FRAME_MS[4]!)
 })
 
+test('the focus hold lasts a few seconds after the last move or press, then lapses', () => {
+  expect(isFocusHeld(0, 1_000_000)).toBe(false)
+  expect(isFocusHeld(1_000_000, 1_000_000)).toBe(true)
+  expect(isFocusHeld(1_000_000, 1_000_000 + FOCUS_HOLD_MS - 1)).toBe(true)
+  expect(isFocusHeld(1_000_000, 1_000_000 + FOCUS_HOLD_MS)).toBe(false)
+})
+
+test('a context tag does not make a different model, so a clicked override stands', () => {
+  expect(sameModel('claude-opus-5-5[1m]', 'claude-opus-5-5')).toBe(true)
+  expect(sameModel('claude-opus-5-5', 'claude-opus-5-5')).toBe(true)
+  expect(sameModel('claude-opus-5-5', 'claude-sonnet-5-5')).toBe(false)
+})
+
+test('only the band\'s own buttons count as focus on the band', () => {
+  expect(onBandButton({ element: 'modelChip' })).toBe(true)
+  expect(onBandButton({ element: 'effortChip', plugin: 'claudius-modulus' })).toBe(true)
+  expect(onBandButton({ element: 'toggle' })).toBe(true)
+  expect(onBandButton({ element: 'servers' })).toBe(true)
+  expect(onBandButton({})).toBe(false)
+  expect(onBandButton({ element: 'something-else' })).toBe(false)
+  expect(onBandButton({ element: 'modelChip', plugin: 'other-mod' })).toBe(false)
+})
+
 test('cycling steps through the models and efforts, wrapping at the ends', () => {
   expect(modelFamily('claude-opus-5-5[1m]')).toBe('opus')
   expect(modelFamily('sonnet')).toBe('sonnet')
@@ -451,6 +488,20 @@ test('/cm takes a model it can send, and refuses a typo that would fail every re
   expect(isModelName('claude-sonnet-5-5')).toBe(true)
   expect(isModelName('claude-')).toBe(false)
   expect(isModelName('sonet')).toBe(false)
+})
+
+test('the week summary says what is used, where the pace ends it, and when it resets', () => {
+  const NOW = Date.parse('2026-10-11T20:00:00Z')
+  const week = (percentUsed: number, resetInDays: number): Limit => ({
+    kind: 'seven_day',
+    percentUsed,
+    resetsAt: new Date(NOW + resetInDays * 86_400_000).toISOString(),
+  })
+  expect(weekSummary(undefined, NOW)).toBe('Week: no reading yet')
+  expect(weekSummary(week(30, 3), NOW)).toBe('Week 30% used, projecting 53% at reset, resets in 3d')
+  expect(weekSummary(week(90, 3), NOW)).toMatch(/^Week 90% used, runs out in ~11h, resets in 3d$/)
+  // too early in the week for a pace: just the use and the reset
+  expect(weekSummary(week(10, 6.8), NOW)).toBe('Week 10% used, resets in 7d')
 })
 
 test('the week runs out when its pace so far will not last to the reset', () => {

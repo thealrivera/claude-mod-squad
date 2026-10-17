@@ -21,6 +21,13 @@ export function modelFamily(id: string | null): string | null {
   return m ? m[1]! : null
 }
 
+// The same model, whatever context tag either side carries: "claude-opus-5-5[1m]" and
+// "claude-opus-5-5" are one model, so a tag the engine adds or drops is not a change.
+export function sameModel(a: string | null, b: string | null): boolean {
+  const bare = (id: string | null) => (id ?? '').replace(/\[.*?\]/g, '').toLowerCase()
+  return bare(a) === bare(b)
+}
+
 // The model after (or before) the current one in the list; from an unknown model the
 // step lands on the first entry.
 export function nextModel(current: string | null, dir: Dir): string {
