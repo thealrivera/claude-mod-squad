@@ -15,10 +15,11 @@ const DEV_PORTS = { min: 1024, max: 9999 }
 // for each listening socket.
 export const LSOF_ARGS = ['lsof', '-nP', '-iTCP', '-sTCP:LISTEN', '-Fpcn']
 
-// Counts the processes in lsof output whose command runs a dev server and that listen on a
-// dev port. A process with several listening sockets counts once.
-export function countDevServers(out: string): number {
-  const pids = new Set<string>()
+// The dev servers in lsof output: the processes whose command runs a dev server and that
+// listen on a dev port, each with the lowest dev port it listens on. A process with several
+// listening sockets counts once.
+export function devServers(out: string): { pid: string; port: number }[] {
+  const ports = new Map<string, number>()
   let pid = ''
   let isDev = false
   for (const line of out.split('\n')) {
@@ -29,11 +30,24 @@ export function countDevServers(out: string): number {
       isDev = DEV_COMMAND.test(line.slice(1))
     } else if (line.startsWith('n') && isDev) {
       const port = Number(line.slice(line.lastIndexOf(':') + 1))
-      if (port >= DEV_PORTS.min && port <= DEV_PORTS.max) pids.add(pid)
+      if (port >= DEV_PORTS.min && port <= DEV_PORTS.max) ports.set(pid, Math.min(port, ports.get(pid) ?? port))
     }
   }
-  return pids.size
+  return [...ports].map(([p, port]) => ({ pid: p, port }))
 }
+
+// How many dev servers are listening, and the lowest port among them (null when none).
+export function summarizeDevServers(out: string): { count: number; port: number | null } {
+  const found = devServers(out)
+  return { count: found.length, port: found.length ? Math.min(...found.map(f => f.port)) : null }
+}
+
+export function countDevServers(out: string): number {
+  return devServers(out).length
+}
+
+// The address the band opens for the lowest-port dev server.
+export const devServerUrl = (port: number): string => `http://localhost:${port}`
 
 // How often the count is taken. lsof is quick, but there is no need to ask more often.
 export const SERVERS_EVERY_MS = 15_000

@@ -13,7 +13,7 @@ import type { Dir } from './cycle'
 import { FIVE_HOUR, prettyModel, pushSample, warnings, worstRank } from './logic'
 import { recordDone, recordSpawn, summarize } from './work'
 import { band, onBandButton } from './view'
-import { LSOF_ARGS, SERVERS_EVERY_MS, countDevServers } from './servers'
+import { LSOF_ARGS, SERVERS_EVERY_MS, devServerUrl, summarizeDevServers } from './servers'
 
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
 const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
@@ -80,10 +80,10 @@ async function ingest($: EngineInterface, u: Measured) {
 }
 
 // The local dev servers listening now, or null when lsof cannot say.
-async function countServers($: EngineInterface): Promise<number | null> {
+async function countServers($: EngineInterface): Promise<{ count: number; port: number | null } | null> {
   try {
     const { stdout } = await $.process.run([...LSOF_ARGS], { timeoutMs: 5000 })
-    return countDevServers(stdout)
+    return summarizeDevServers(stdout)
   } catch {
     return null
   }
@@ -307,6 +307,10 @@ export const register: Register = on => {
         const folded = !(await read($, isCollapsed))
         await $.store.set(COLLAPSE_KEY, folded)
         await update($, isCollapsed, () => folded)
+      },
+      onOpenServer: async () => {
+        const port = (await read($, servers))?.port
+        if (port) await $.process.run(['open', devServerUrl(port)], { timeoutMs: 5000 }).catch(() => undefined)
       },
       onCycleModel: async () => {
         await cycleModel($, 'next')
