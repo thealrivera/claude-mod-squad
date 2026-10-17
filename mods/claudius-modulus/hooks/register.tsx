@@ -56,6 +56,9 @@ const TIMER_SLACK_MS = 100
 const PLAN_KEY = 'claudius-modulus:isPlan'
 const COLLAPSE_KEY = 'claudius-modulus:isCollapsed'
 const QUIET_KEY = 'claudius-modulus:isQuiet'
+// The store is one file for every session of this install, and each read reads it afresh,
+// so a session that looks every few seconds follows a fold or a quips switch made in another.
+const SYNC_EVERY_MS = 2000
 
 async function ingest($: EngineInterface, u: Measured) {
   const now = await $.clock.now()
@@ -157,6 +160,12 @@ export const register: Register = on => {
       await update($, servers, () => n)
     })
     void countServers($).then(n => update($, servers, () => n))
+    $.clock.every(SYNC_EVERY_MS, async () => {
+      const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
+      if ((await read($, isCollapsed)) !== collapsed) await update($, isCollapsed, () => collapsed)
+      const quiet = (await $.store.get(QUIET_KEY)) === true
+      if ((await read($, isQuiet)) !== quiet) await update($, isQuiet, () => quiet)
+    })
     return next(e)
   })
 
@@ -219,8 +228,9 @@ export const register: Register = on => {
       case 'quips': {
         const wasQuiet = await read($, isQuiet)
         const quiet = req.value === 'toggle' ? !wasQuiet : req.value === 'off'
-        await update($, isQuiet, () => quiet)
+        // The store first: a sync between the two writes then agrees with the new choice.
         await $.store.set(QUIET_KEY, quiet)
+        await update($, isQuiet, () => quiet)
         return { text: quiet ? 'Quips off. /cm quips on brings them back.' : 'Quips on.' }
       }
       case 'off': {
@@ -281,21 +291,22 @@ export const register: Register = on => {
     // Read so the countdowns, the icon loop and the second row redraw on each tick.
     await read($, tick)
 
-    const collapsed = await read($, isCollapsed)
     const ui = $.ui.resolve(e)
     return band(ui, {
       model: await read($, model),
       effort: await read($, effort),
       isUltracode: await read($, isUltracode),
       isPlan: await read($, isPlan),
-      isCollapsed: collapsed,
+      isCollapsed: await read($, isCollapsed),
       isQuiet: await read($, isQuiet),
       focused: await read($, bandFocus),
       servers: await read($, servers),
       work: summarize(await read($, agents), await $.clock.now()),
+      // The store first, as for the quips; every open session follows it.
       onToggle: async () => {
-        await update($, isCollapsed, () => !collapsed)
-        await $.store.set(COLLAPSE_KEY, !collapsed)
+        const folded = !(await read($, isCollapsed))
+        await $.store.set(COLLAPSE_KEY, folded)
+        await update($, isCollapsed, () => folded)
       },
       onCycleModel: async () => {
         await cycleModel($, 'next')

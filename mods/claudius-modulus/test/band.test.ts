@@ -24,7 +24,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.6\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.7\.0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -117,7 +117,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.6\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.7\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -451,6 +451,55 @@ test('the quips turn off and stay off, leaving the brand and its cursor', async 
   expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
   expect(await cm('quips')).toMatch(/Quips on/)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a fold or a quips switch made in another open session reaches this one', async ($, on) => {
+  const clock = mock.clock(on, { now: T0 })
+  // one store file for every session: this session's reads see what another session wrote
+  const disk = new Map<string, unknown>()
+  on('store.get', (_$, e) => ({ value: disk.get(e.key) }) as never)
+  on('store.set', (_$, e) => {
+    disk.set(e.key, e.value)
+    return { value: undefined } as never
+  })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
+  on('session.usage', () =>
+    ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
+  )
+  on('command.register', () => ({ value: undefined }) as never)
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Button', key: 'toggle', text: /^− Less$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
+
+  // another session folds the band and turns the quips off
+  disk.set('claudius-modulus:isCollapsed', true)
+  disk.set('claudius-modulus:isQuiet', true)
+  await clock.advance(2000)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Button', key: 'toggle', text: /^\+ More$/ })).toBeDefined()
+
+  // opened here, it stays open: the press writes the store, so the next look agrees
+  await ui.press({ key: 'toggle' })
+  await clock.advance(2000)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Button', key: 'toggle', text: /^− Less$/ })).toBeDefined()
+  expect(disk.get('claudius-modulus:isCollapsed')).toBe(false)
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeUndefined()
+
+  // and the other session turns the quips back on
+  disk.set('claudius-modulus:isQuiet', false)
+  await clock.advance(2000)
   await ui.redraw()
   expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
   await ui.unmount()
