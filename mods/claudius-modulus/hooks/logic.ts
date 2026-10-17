@@ -96,6 +96,25 @@ export function forecast(samples: Sample[], limit: Limit | undefined, now: numbe
   return { ...common, state: projected >= 80 ? 'tight' : 'ok' }
 }
 
+const WEEK = 7 * 24 * HOUR
+const WEEK_MIN_ELAPSED = 12 * HOUR
+
+export type WeekPace = { projected: number; msToReset: number; msToEmpty: number; runsOut: boolean }
+
+// The seven-day window at the pace of the week so far: what it has used over the time since
+// it opened. Half a day in, the pace means something; before then, or with nothing used,
+// there is none.
+export function weekPace(limit: Limit | undefined, now: number): WeekPace | undefined {
+  const reset = resetMs(limit)
+  if (!limit || reset === undefined) return undefined
+  const msToReset = Math.max(0, reset - now)
+  const elapsed = WEEK - msToReset
+  if (elapsed < WEEK_MIN_ELAPSED || limit.percentUsed <= 0) return undefined
+  const perMs = limit.percentUsed / elapsed
+  const msToEmpty = Math.max(0, (100 - limit.percentUsed) / perMs)
+  return { projected: limit.percentUsed + perMs * msToReset, msToReset, msToEmpty, runsOut: msToEmpty < msToReset }
+}
+
 export function fmtDur(ms: number | undefined): string {
   if (ms === undefined) return '?'
   const mins = Math.round(ms / MINUTE)

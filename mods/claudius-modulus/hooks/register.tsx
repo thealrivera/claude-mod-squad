@@ -18,9 +18,16 @@ import { LSOF_ARGS, SERVERS_EVERY_MS, countDevServers } from './servers'
 const model = atom({ plugin: 'claudius-modulus', key: 'model' } as const, null)
 const effort = atom({ plugin: 'claudius-modulus', key: 'effort' } as const, null)
 const override = atom({ plugin: 'claudius-modulus', key: 'override' } as const, null)
+// An override from the band stands until the person changes the engine's own model or
+// effort (/model, the picker, the effort slider): then the engine's choice wins and the
+// override clears. The `engine` atom holds what the last main-loop step named, and
+// `toasted` the highest warning rank already toasted, so each level toasts once.
+const engine = atom({ plugin: 'claudius-modulus', key: 'engine' } as const, { model: null, effort: null })
+const toasted = atom({ plugin: 'claudius-modulus', key: 'toasted' } as const, 0)
 const isUltracode = atom({ plugin: 'claudius-modulus', key: 'isUltracode' } as const, false)
 const isPlan = atom({ plugin: 'claudius-modulus', key: 'isPlan' } as const, false)
 const isCollapsed = atom({ plugin: 'claudius-modulus', key: 'isCollapsed' } as const, false)
+const isQuiet = atom({ plugin: 'claudius-modulus', key: 'isQuiet' } as const, false)
 const agents = atom({ plugin: 'claudius-modulus', key: 'agents' } as const, [])
 const limits = atom({ plugin: 'claudius-modulus', key: 'limits' } as const, [])
 const samples = atom({ plugin: 'claudius-modulus', key: 'samples' } as const, [])
@@ -37,19 +44,21 @@ type Measured = {
 }
 
 const ULTRACODE_WORD = /\bultracode\b/i
-const REDRAW_EVERY_MS = 200 // one frame of the blinking cursor and the level icon; also keeps the ring's seconds fresh
+// How often the band redraws on its own. Expanded: one step of the cursor's blink and the
+// rule's breathing (the desktop's level icon loops inside its own SVG, so nothing needs a
+// faster redraw). With the focus on one of its buttons: seldom, so a click lands on the
+// button it was aimed at. Collapsed: only the reset countdown shows, in minutes.
+const REDRAW_EVERY_MS = 1000
+const FOCUSED_REDRAW_MS = 5000
+const COLLAPSED_REDRAW_MS = 30_000
+const TIMER_SLACK_MS = 100
 
-// Highest warning rank already toasted, so each level toasts once.
-let toasted = 0
 const PLAN_KEY = 'claudius-modulus:isPlan'
 const COLLAPSE_KEY = 'claudius-modulus:isCollapsed'
-let lastStep = ''
-
-// The engine's own model and effort, as the last main-loop step named them. An override
-// from the band stands until the person changes one of these themselves (/model, the
-// picker, the effort slider): then the engine's choice wins and the override clears.
-let engineModel: string | null = null
-let engineEffort: string | null = null
+const QUIET_KEY = 'claudius-modulus:isQuiet'
+// The store is one file for every session of this install, and each read reads it afresh,
+// so a session that looks every few seconds follows a fold or a quips switch made in another.
+const SYNC_EVERY_MS = 2000
 
 async function ingest($: EngineInterface, u: Measured) {
   const now = await $.clock.now()
@@ -83,20 +92,21 @@ async function countServers($: EngineInterface): Promise<number | null> {
 async function alertIfWorse($: EngineInterface) {
   const list = warnings(await read($, effort), await read($, isUltracode), await read($, limits))
   const rank = worstRank(list)
-  if (rank > toasted && list[0]) {
+  if (rank > (await read($, toasted)) && list[0]) {
     $.ui.toast(`⚠ ${list[0].label}: ${list[0].detail}`, { timeoutMs: 7000 })
   }
-  toasted = rank
+  await update($, toasted, () => rank)
 }
 
 // Sets the model or effort the next request uses, shows it on the chips at once, and says so.
 async function setOverride($: EngineInterface, patch: { model?: string; effort?: string }) {
   const prev = (await read($, override)) ?? { model: null, effort: null, sawModel: null, sawEffort: null }
+  const seen = await read($, engine)
   const next: Override = {
     model: patch.model ?? prev.model,
     effort: patch.effort ?? prev.effort,
-    sawModel: engineModel,
-    sawEffort: engineEffort,
+    sawModel: seen.model,
+    sawEffort: seen.effort,
   }
   await update($, override, () => next)
   if (patch.model !== undefined) await update($, model, () => patch.model!)
@@ -120,27 +130,42 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await update($, model, () => null)
     const m = await $.session.model()
-    engineModel = m
+    await update($, engine, prev => ({ ...prev, model: m }))
     await update($, model, () => m)
     const plan = (await $.store.get(PLAN_KEY)) === true
     await update($, isPlan, () => plan)
     const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
     await update($, isCollapsed, () => collapsed)
+    const quiet = (await $.store.get(QUIET_KEY)) === true
+    await update($, isQuiet, () => quiet)
     await ingest($, await $.session.usage())
     await $.command.register({
       name: 'cm',
-      description: 'claudius-modulus: cycle the model or effort for the next request',
-      argumentHint: 'model|effort [next|prev|name] | off',
+      description: 'claudius-modulus: cycle the model or effort for the next request, or turn the quips off',
+      argumentHint: 'model|effort [next|prev|name] | quips [on|off] | off',
       immediate: true,
     })
+    // `tick` holds when the band last redrew on its own.
     $.clock.every(REDRAW_EVERY_MS, async () => {
-      await update($, tick, n => n + 1)
+      const step = (await read($, isCollapsed))
+        ? COLLAPSED_REDRAW_MS
+        : (await read($, bandFocus))
+          ? FOCUSED_REDRAW_MS
+          : REDRAW_EVERY_MS
+      const now = await $.clock.now()
+      if (now - (await read($, tick)) >= step - TIMER_SLACK_MS) await update($, tick, () => now)
     })
     $.clock.every(SERVERS_EVERY_MS, async () => {
       const n = await countServers($)
       await update($, servers, () => n)
     })
     void countServers($).then(n => update($, servers, () => n))
+    $.clock.every(SYNC_EVERY_MS, async () => {
+      const collapsed = (await $.store.get(COLLAPSE_KEY)) === true
+      if ((await read($, isCollapsed)) !== collapsed) await update($, isCollapsed, () => collapsed)
+      const quiet = (await $.store.get(QUIET_KEY)) === true
+      if ((await read($, isQuiet)) !== quiet) await update($, isQuiet, () => quiet)
+    })
     return next(e)
   })
 
@@ -166,14 +191,11 @@ export const register: Register = on => {
         await update($, override, () => null)
       }
     }
-    engineModel = e.model
-    engineEffort = stepEffort
+    await update($, engine, () => ({ model: e.model, effort: stepEffort }))
 
     const usedModel = o?.model ?? e.model
     const usedEffort = o?.effort ?? stepEffort
-    const key = `${usedModel}|${usedEffort ?? ''}`
-    if (key !== lastStep) {
-      lastStep = key
+    if ((await read($, model)) !== usedModel || (await read($, effort)) !== usedEffort) {
       await update($, model, () => usedModel)
       await update($, effort, () => usedEffort)
       await alertIfWorse($)
@@ -203,11 +225,20 @@ export const register: Register = on => {
             : await setOverride($, { effort: req.value })
         return { text: said }
       }
+      case 'quips': {
+        const wasQuiet = await read($, isQuiet)
+        const quiet = req.value === 'toggle' ? !wasQuiet : req.value === 'off'
+        // The store first: a sync between the two writes then agrees with the new choice.
+        await $.store.set(QUIET_KEY, quiet)
+        await update($, isQuiet, () => quiet)
+        return { text: quiet ? 'Quips off. /cm quips on brings them back.' : 'Quips on.' }
+      }
       case 'off': {
         await update($, override, () => null)
-        if (engineModel !== null) await update($, model, () => engineModel)
-        await update($, effort, () => engineEffort)
-        lastStep = ''
+        const seen = await read($, engine)
+        if (seen.model !== null) await update($, model, () => seen.model)
+        await update($, effort, () => seen.effort)
+        await alertIfWorse($)
         return { text: 'Override cleared: the session model and effort are back.' }
       }
       default:
@@ -260,20 +291,22 @@ export const register: Register = on => {
     // Read so the countdowns, the icon loop and the second row redraw on each tick.
     await read($, tick)
 
-    const collapsed = await read($, isCollapsed)
     const ui = $.ui.resolve(e)
     return band(ui, {
       model: await read($, model),
       effort: await read($, effort),
       isUltracode: await read($, isUltracode),
       isPlan: await read($, isPlan),
-      isCollapsed: collapsed,
+      isCollapsed: await read($, isCollapsed),
+      isQuiet: await read($, isQuiet),
       focused: await read($, bandFocus),
       servers: await read($, servers),
       work: summarize(await read($, agents), await $.clock.now()),
+      // The store first, as for the quips; every open session follows it.
       onToggle: async () => {
-        await update($, isCollapsed, () => !collapsed)
-        await $.store.set(COLLAPSE_KEY, !collapsed)
+        const folded = !(await read($, isCollapsed))
+        await $.store.set(COLLAPSE_KEY, folded)
+        await update($, isCollapsed, () => folded)
       },
       onCycleModel: async () => {
         await cycleModel($, 'next')

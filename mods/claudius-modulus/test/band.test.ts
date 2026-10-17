@@ -24,7 +24,7 @@ test('the band draws on the terminal and the desktop before any reading arrives'
       props: PROPS,
     })
     expect(await ui.find({ type: 'Text', text: /usage shows after your first response/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.6\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.7\.0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /⚠/ })).toBeUndefined()
@@ -88,7 +88,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await ui.find({ type: 'Text', text: /\$1\.84/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /context/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /Limit in ~/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /week 90%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^week out ~11h$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeUndefined()
     expect(toasts.length).toBe(0)
 
@@ -117,7 +117,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await clock.advance(30_000)
     await ui.redraw()
     expect(await ui.find({ type: 'Text', text: /MAX EFFORT/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^v1\.6\.0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^v1\.7\.0$/ })).toBeDefined()
     expect(toasts.length).toBe(1)
     expect(toasts[0]).toMatch(/MAX EFFORT/)
     await ui.unmount()
@@ -272,10 +272,10 @@ test('the cursor after the brand blinks on its own as the clock runs', async ($,
     props: PROPS,
   })
   const seen = new Set<string>()
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     const el = await ui.find({ type: 'Text', text: /^_$/ })
     seen.add(JSON.stringify(el))
-    await clock.advance(200)
+    await clock.advance(1000)
     await ui.redraw()
   }
   expect(seen.size).toBeGreaterThan(1)
@@ -385,6 +385,162 @@ test('the band cycles the model and effort, and the override rides on the next r
   await step('claude-sonnet-5-5', 'high')
   expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
   expect(await cm('nonsense')).toMatch(/Usage/)
+
+  // a model name it cannot send is refused, and the next request keeps the session's model
+  expect(await cm('model opuss')).toMatch(/Usage/)
+  await step('claude-sonnet-5-5', 'high')
+  expect(seen.at(-1)).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
+  await ui.unmount()
+})
+
+for (const surface of ['terminal', 'desktop'] as const) {
+  test(`the collapse toggle leads the top row in both shapes (${surface})`, async ($, on) => {
+    mock.clock(on, { now: T0 })
+    mock.store(on)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    const ui = await $.ui.mount({
+      plugin: 'claudius-modulus',
+      surface,
+      component: 'AbovePrompt',
+      props: PROPS,
+    })
+    await $.session.measure(reading(20, 30))
+    await ui.redraw()
+    // the first button drawn is the toggle, so it sits at the band's left, far from the
+    // engine's own [-] at the right end
+    const first = async () => (await ui.findAll({ type: 'Button' }))[0]
+    // the desktop's native button gets a word beside its sign; the terminal's [ − ] is wide already
+    const less = surface === 'desktop' ? /^− Less$/ : /^−$/
+    const more = surface === 'desktop' ? /^\+ More$/ : /^\+$/
+    expect((await first())?.key).toBe('toggle')
+    expect(await ui.find({ type: 'Button', key: 'toggle', text: less })).toBeDefined()
+    await ui.press({ key: 'toggle' })
+    await ui.redraw()
+    expect((await first())?.key).toBe('toggle')
+    expect(await ui.find({ type: 'Button', key: 'toggle', text: more })).toBeDefined()
+    await ui.press({ key: 'toggle' })
+    await ui.redraw()
+    expect(await ui.find({ type: 'Button', key: 'toggle', text: less })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+test('the quips turn off and stay off, leaving the brand and its cursor', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  const cm = async (args: string) =>
+    (
+      await $.command.run({
+        command: 'cm',
+        args,
+        origin: { kind: 'composer' },
+        presentation: { isFullscreen: false, columns: 110 },
+      })
+    ).text
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
+  expect(await cm('quips off')).toMatch(/Quips off/)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^_$/ })).toBeDefined()
+  expect(await cm('quips')).toMatch(/Quips on/)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a fold or a quips switch made in another open session reaches this one', async ($, on) => {
+  const clock = mock.clock(on, { now: T0 })
+  // one store file for every session: this session's reads see what another session wrote
+  const disk = new Map<string, unknown>()
+  on('store.get', (_$, e) => ({ value: disk.get(e.key) }) as never)
+  on('store.set', (_$, e) => {
+    disk.set(e.key, e.value)
+    return { value: undefined } as never
+  })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
+  on('session.usage', () =>
+    ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
+  )
+  on('command.register', () => ({ value: undefined }) as never)
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Button', key: 'toggle', text: /^− Less$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
+
+  // another session folds the band and turns the quips off
+  disk.set('claudius-modulus:isCollapsed', true)
+  disk.set('claudius-modulus:isQuiet', true)
+  await clock.advance(2000)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Button', key: 'toggle', text: /^\+ More$/ })).toBeDefined()
+
+  // opened here, it stays open: the press writes the store, so the next look agrees
+  await ui.press({ key: 'toggle' })
+  await clock.advance(2000)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Button', key: 'toggle', text: /^− Less$/ })).toBeDefined()
+  expect(disk.get('claudius-modulus:isCollapsed')).toBe(false)
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeUndefined()
+
+  // and the other session turns the quips back on
+  disk.set('claudius-modulus:isQuiet', false)
+  await clock.advance(2000)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('quips turned off stay off in the next session', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on, { 'claudius-modulus:isQuiet': true })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('session.model', () => ({ value: 'claude-sonnet-5-5' }) as never)
+  on('session.usage', () =>
+    ({ value: { startedAt: T0, context: { window: 200000 }, rateLimits: [] } }) as never,
+  )
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: PROPS,
+  })
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /“/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /claudius-modulus/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a nearly full context says how to free it, and a week that will not last says when it runs out', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  const ui = await $.ui.mount({
+    plugin: 'claudius-modulus',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { ...PROPS, bodyColumns: 160 },
+  })
+  await $.session.measure({ ...reading(20, 70), context: { window: 200000, tokens: 180000, percent: 90 } })
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /context 90% full, \/compact/ })).toBeDefined()
+  // four days in at 70%: the last 30% lasts under two of the three days left
+  expect(await ui.find({ type: 'Text', text: /^week out ~1d \d+h$/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -417,11 +573,17 @@ test('only the band\'s own buttons light the band on the keyboard focus', () => 
   expect(onBandButton({ element: 'modelChip', plugin: 'other-mod' })).toBe(false)
 })
 
-test('the dev servers counted from lsof are the processes that run python, node or the like', () => {
+test('the dev servers counted from lsof are the processes that run python, node or the like on a dev port', () => {
   const out = [
-    'p6119', 'cPython', 'p93234', 'cnode', 'p93234', 'cnode',
-    'p500', 'cGoogle Chrome', 'p501', 'cControlCe', 'p502', 'cSomething',
+    // a Python server on 8000, a node server on both stacks of 5173: two servers
+    'p6119', 'cPython', 'f4', 'n*:8000',
+    'p93234', 'cnode', 'f20', 'n127.0.0.1:5173', 'f21', 'n[::1]:5173',
+    // wrangler dev: workerd serves 8787, the wrangler CLI beside it listens on high ports
+    'p700', 'cworkerd', 'f9', 'n127.0.0.1:8787', 'f10', 'n127.0.0.1:9229',
+    'p701', 'cnode', 'f32', 'n[::1]:49666',
+    // not dev commands, whatever their ports
+    'p500', 'cGoogle Chrome', 'f3', 'n*:3000', 'p501', 'cControlCenter', 'f10', 'n*:7000',
   ].join('\n')
-  expect(countDevServers(out)).toBe(2)
+  expect(countDevServers(out)).toBe(3)
   expect(countDevServers('')).toBe(0)
 })

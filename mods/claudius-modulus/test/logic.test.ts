@@ -18,11 +18,12 @@ import {
   pushSample,
   ramp,
   warnings,
+  weekPace,
 } from '../hooks/logic'
 import { QUIPS, ROTATE_MS, rowFor } from '../hooks/quips'
 import { pieGlyph, recordDone, recordSpawn, ringSvg, summarize } from '../hooks/work'
-import { FRAMES, FRAME_MS, ICONS, iconFrame, iconSvg } from '../hooks/icons'
-import { EFFORTS, MODELS, modelFamily, nextEffort, nextModel, parseCm, resolveModel } from '../hooks/cycle'
+import { FRAMES, FRAME_MS, ICONS, iconFrame, iconLoopSvg, iconSvg } from '../hooks/icons'
+import { EFFORTS, MODELS, isModelName, modelFamily, nextEffort, nextModel, parseCm, resolveModel } from '../hooks/cycle'
 import { LEVEL_NAMES, levelColor, levelGlyph, levelMeter, pacingLevel } from '../hooks/sprites'
 import { VERSION, versionLabel } from '../hooks/version'
 
@@ -192,7 +193,7 @@ test('the version label is the full version', () => {
   expect(versionLabel('1.0.0')).toBe('v1.0.0')
   expect(versionLabel('1.2.0')).toBe('v1.2.0')
   expect(versionLabel('1.0.1')).toBe('v1.0.1')
-  expect(versionLabel(VERSION)).toBe('v1.6.0')
+  expect(versionLabel(VERSION)).toBe('v1.7.0')
 })
 
 test('there are twenty quips, each short, distinct and free of em dashes', () => {
@@ -432,4 +433,57 @@ test('/cm reads its words: a kind, a direction or a name, or off', () => {
   expect(parseCm('off')).toEqual({ kind: 'off' })
   expect(parseCm('reset')).toEqual({ kind: 'off' })
   expect(parseCm('bogus')).toEqual({ kind: 'help' })
+  expect(parseCm('quips')).toEqual({ kind: 'quips', value: 'toggle' })
+  expect(parseCm('quips off')).toEqual({ kind: 'quips', value: 'off' })
+  expect(parseCm('q on')).toEqual({ kind: 'quips', value: 'on' })
+  expect(parseCm('quips loud')).toEqual({ kind: 'help' })
+})
+
+test('/cm takes a model it can send, and refuses a typo that would fail every request', () => {
+  expect(parseCm('model claude-opus-4-1')).toEqual({ kind: 'model', value: 'claude-opus-4-1' })
+  expect(parseCm('model claude-opus-5-5[1m]')).toEqual({ kind: 'model', value: 'claude-opus-5-5[1m]' })
+  expect(parseCm('model opuss')).toEqual({ kind: 'help' })
+  expect(parseCm('model gpt-5')).toEqual({ kind: 'help' })
+  expect(isModelName('Haiku')).toBe(true)
+  expect(isModelName('claude-sonnet-5-5')).toBe(true)
+  expect(isModelName('claude-')).toBe(false)
+  expect(isModelName('sonet')).toBe(false)
+})
+
+test('the week runs out when its pace so far will not last to the reset', () => {
+  const DAY = 86_400_000
+  const week = (percentUsed: number, resetInDays: number): Limit => ({
+    kind: 'seven_day',
+    percentUsed,
+    resetsAt: new Date(NOW + resetInDays * DAY).toISOString(),
+  })
+  // four days in at 90%: 22.5% a day, so the last 10% lasts under half a day of the three left
+  const hot = weekPace(week(90, 3), NOW)!
+  expect(hot.runsOut).toBe(true)
+  expect(Math.round(hot.msToEmpty / 3_600_000)).toBe(11)
+  // four days in at 30%: 7.5% a day ends the week near 52%
+  const calm = weekPace(week(30, 3), NOW)!
+  expect(calm.runsOut).toBe(false)
+  expect(Math.round(calm.projected)).toBe(53)
+  // too early in the week, nothing used, or no window: no pace
+  expect(weekPace(week(10, 6.8), NOW)).toBeUndefined()
+  expect(weekPace(week(0, 3), NOW)).toBeUndefined()
+  expect(weekPace(undefined, NOW)).toBeUndefined()
+})
+
+test('the looping icon holds every frame, each shown in its turn, in the resting frame\'s box', () => {
+  for (const l of [1, 2, 3, 4, 5] as const) {
+    const frames = FRAMES[l - 1]!
+    const svg = iconLoopSvg(l, '#d97757')
+    expect(svg.startsWith('<svg')).toBe(true)
+    expect(svg.match(/viewBox="([^"]+)"/)![1]).toBe(iconSvg(l, '#d97757').match(/viewBox="([^"]+)"/)![1])
+    expect(svg.match(/<animate /g)?.length).toBe(frames.length)
+    expect(svg).toContain(`dur="${frames.length * FRAME_MS[l - 1]!}ms"`)
+    expect(svg).toContain('repeatCount="indefinite"')
+    // without SMIL the resting frame shows alone
+    expect(svg.match(/<g visibility="visible">/g)?.length).toBe(1)
+    expect(svg.indexOf('<g visibility="visible">')).toBeLessThan(svg.indexOf('<g visibility="hidden">'))
+    // one colour for the whole loop
+    expect(svg.match(/fill="/g)?.length).toBe(1)
+  }
 })

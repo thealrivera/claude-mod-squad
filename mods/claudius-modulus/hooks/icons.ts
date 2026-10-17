@@ -2,8 +2,8 @@
 // band can draw an SVG image). They show how well the session is pacing toward using every
 // token: a moon, a cup, speed chevrons, a lightning bolt and a flame.
 //
-// Each icon is a short loop of frames. The band redraws every 200 ms (its tick), and the
-// frame is picked from the clock, so the loop runs for free on that redraw.
+// Each icon is a short loop of frames. The band draws it as one SVG that runs the loop by
+// itself (SMIL, in the desktop's interactive SVG frame), so the band never redraws for it.
 
 const MOON = [
   '...XXXXXX...',
@@ -193,13 +193,11 @@ export function litCentre(grid: Grid): [number, number] {
   return [(minX + maxX + 1) / 2, (minY + maxY + 1) / 2]
 }
 
-// A grid as an SVG: each run of lit pixels in a row is one rectangle, so the image stays
-// small and the pixels stay hard-edged. `now` picks the frame; left out, the resting one.
-export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): string {
-  const frames = FRAMES[level - 1]!
-  const rows = frames[now === undefined ? 0 : iconFrame(level, now)]!
+// A grid's lit pixels as rectangles, one per run in a row, so the image stays small and the
+// pixels stay hard-edged.
+function gridRects(grid: Grid): string {
   const rects: string[] = []
-  rows.forEach((row, y) => {
+  grid.forEach((row, y) => {
     let x = 0
     while (x < row.length) {
       if (row[x] !== 'X') {
@@ -212,6 +210,43 @@ export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): 
       x = end
     }
   })
+  return rects.join('')
+}
+
+// A frame of the level's icon as an SVG. `now` picks the frame; left out, the resting one.
+export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): string {
+  const frames = FRAMES[level - 1]!
+  const rows = frames[now === undefined ? 0 : iconFrame(level, now)]!
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${iconViewBox(level)}" shape-rendering="crispEdges">` +
+    `<g fill="${color}">${gridRects(rows)}</g></svg>`
+  )
+}
+
+// The level's whole loop as one SVG: each frame is a group shown in its turn by a discrete
+// SMIL animation, so the picture moves without the band redrawing. Where SMIL does not run,
+// the resting frame shows alone.
+export function iconLoopSvg(level: 1 | 2 | 3 | 4 | 5, color: string): string {
+  const frames = FRAMES[level - 1]!
+  const n = frames.length
+  const dur = `${n * FRAME_MS[level - 1]!}ms`
+  const keyTimes = frames.map((_, i) => String(Math.round((i / n) * 10000) / 10000)).join(';')
+  const groups = frames.map((grid, k) => {
+    const values = frames.map((_, i) => (i === k ? 'visible' : 'hidden')).join(';')
+    return (
+      `<g visibility="${k === 0 ? 'visible' : 'hidden'}">${gridRects(grid)}` +
+      `<animate attributeName="visibility" calcMode="discrete" values="${values}" keyTimes="${keyTimes}" ` +
+      `dur="${dur}" repeatCount="indefinite"/></g>`
+    )
+  })
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${iconViewBox(level)}" shape-rendering="crispEdges">` +
+    `<g fill="${color}">${groups.join('')}</g></svg>`
+  )
+}
+
+function iconViewBox(level: 1 | 2 | 3 | 4 | 5): string {
+  const frames = FRAMES[level - 1]!
   // Centre the glyph on its resting frame, so it sits in the middle of its box whatever its
   // own shape is (the bolt leans, say), and the picture holds still while the loop runs.
   // The loop's sparks can reach past the resting frame, so the box is made wide enough to
@@ -231,8 +266,5 @@ export function iconSvg(level: 1 | 2 | 3 | 4 | 5, color: string, now?: number): 
   const side = reach * 2
   const vx = cx - ICON_NUDGE - reach
   const vy = cy - reach
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${side} ${side}" shape-rendering="crispEdges">` +
-    `<g fill="${color}">${rects.join('')}</g></svg>`
-  )
+  return `${vx} ${vy} ${side} ${side}`
 }
