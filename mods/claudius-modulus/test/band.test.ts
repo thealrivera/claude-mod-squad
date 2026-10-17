@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { FRAMES, ICON_NUDGE, iconSvg } from '../hooks/icons'
 import { onBandButton } from '../hooks/view'
-import { countDevServers } from '../hooks/servers'
+import { countDevServers, devServerUrl, summarizeDevServers } from '../hooks/servers'
 
 const PROPS = {
   hasSurvey: false,
@@ -282,7 +282,7 @@ test('the cursor after the brand blinks on its own as the clock runs', async ($,
   await ui.unmount()
 })
 
-test('the expanded band draws the top-left rule in the cursor\'s colours', async ($, on) => {
+test('the expanded band draws the bottom-left rule in the cursor\'s colours', async ($, on) => {
   mock.clock(on, { now: T0 })
   mock.store(on)
   on('session.measure', (_$, e) => ({ changed: e.changed }))
@@ -394,7 +394,7 @@ test('the band cycles the model and effort, and the override rides on the next r
 })
 
 for (const surface of ['terminal', 'desktop'] as const) {
-  test(`the collapse toggle leads the top row in both shapes (${surface})`, async ($, on) => {
+  test(`the collapse toggle sits at the top right in both shapes (${surface})`, async ($, on) => {
     mock.clock(on, { now: T0 })
     mock.store(on)
     on('session.measure', (_$, e) => ({ changed: e.changed }))
@@ -406,17 +406,16 @@ for (const surface of ['terminal', 'desktop'] as const) {
     })
     await $.session.measure(reading(20, 30))
     await ui.redraw()
-    // the first button drawn is the toggle, so it sits at the band's left, far from the
-    // engine's own [-] at the right end
-    const first = async () => (await ui.findAll({ type: 'Button' }))[0]
+    // expanded, the toggle is drawn on its own row above the chips; collapsed, it ends the line
+    const order = async () => (await ui.findAll({ type: 'Button' })).map(b => b.key)
     // the desktop's native button gets a word beside its sign; the terminal's [ − ] is wide already
     const less = surface === 'desktop' ? /^− Less$/ : /^−$/
     const more = surface === 'desktop' ? /^\+ More$/ : /^\+$/
-    expect((await first())?.key).toBe('toggle')
+    expect((await order())[0]).toBe('toggle')
     expect(await ui.find({ type: 'Button', key: 'toggle', text: less })).toBeDefined()
     await ui.press({ key: 'toggle' })
     await ui.redraw()
-    expect((await first())?.key).toBe('toggle')
+    expect((await order()).at(-1)).toBe('toggle')
     expect(await ui.find({ type: 'Button', key: 'toggle', text: more })).toBeDefined()
     await ui.press({ key: 'toggle' })
     await ui.redraw()
@@ -586,4 +585,8 @@ test('the dev servers counted from lsof are the processes that run python, node 
   ].join('\n')
   expect(countDevServers(out)).toBe(3)
   expect(countDevServers('')).toBe(0)
+  // the band opens the lowest-port server
+  expect(summarizeDevServers(out)).toEqual({ count: 3, port: 5173 })
+  expect(summarizeDevServers('')).toEqual({ count: 0, port: null })
+  expect(devServerUrl(5173)).toBe('http://localhost:5173')
 })

@@ -38,9 +38,10 @@ export type BandData = {
   isCollapsed: boolean
   isQuiet: boolean
   focused: boolean
-  servers: number | null
+  servers: { count: number; port: number | null } | null
   work: Work | null
   onToggle: () => void | Promise<void>
+  onOpenServer: () => void | Promise<void>
   onCycleModel: () => void | Promise<void>
   onCycleEffort: () => void | Promise<void>
   limits: Limit[]
@@ -58,7 +59,7 @@ const WATCH = PAL.amber
 const BAD = PAL.red
 const NEUTRAL = '#8fb4ff'
 
-// The cursor's own colours: the top-left rule breathes between them, as the cursor does.
+// The cursor's own colours: the bottom-left rule breathes between them, as the cursor does.
 const CURSOR_DIM = '#2b3050'
 // The band's focus colour, bright orange, and its dim end for the breathing rule.
 const FOCUS_ORANGE = '#ff7a00'
@@ -67,9 +68,8 @@ const FOCUS_DIM = '#7a3b00'
 // The band's own buttons, by the key each one is drawn under.
 const BAND_KEYS = ['toggle', 'modelChip', 'effortChip']
 
-// The collapse toggle's labels. It leads the band's top row in both shapes, so one spot
-// folds the band and the same spot opens it again, well away from the engine's own `[-]`
-// at the right end. The desktop draws a native button no wider than its label, so there a
+// The collapse toggle's labels. It sits at the band's top right in both shapes, so one spot
+// folds the band and the same spot opens it again. The desktop draws a native button no wider than its label, so there a
 // word beside the sign makes a target a click can find; the terminal's `[ + ]` is already
 // five cells wide, and a narrow band needs the room.
 const TOGGLE_LABEL = {
@@ -275,12 +275,12 @@ export function band(ui: Ui, d: BandData) {
   const blockCols = d.isCollapsed
     ? d.cols - toggleCols - 1 - 2 - chipsWidth - 2
     : d.cols - leftCols - 4 - ringCols
-  // The top border of the left block, after the toggle: a rule in the cursor's colours,
+  // The bottom border of the left block: a rule in the cursor's colours,
   // fading from left to right, its brightness breathing with the cursor. Orange while the
   // band has the focus.
   const ruleGlow = cursorGlow(d.now)
   const ruleStops = d.focused ? [FOCUS_DIM, FOCUS_ORANGE] : [CURSOR_DIM, PAL.violet]
-  const ruleCols = Math.max(1, leftCols - toggleCols - 1)
+  const ruleCols = Math.max(1, leftCols)
   const rule = (
     <Text wrap="truncate">
       {Array.from({ length: ruleCols }, (_, i) => (
@@ -303,9 +303,17 @@ export function band(ui: Ui, d: BandData) {
   const brand = (
     <Box flexDirection="row" gap={2}>
       {d.servers !== null ? (
-        <Text color={PAL.mute} dimColor>
-          {d.servers} dev {d.servers === 1 ? 'server' : 'servers'}
-        </Text>
+        d.servers.port !== null ? (
+          <Button key="servers" plain onPress={d.onOpenServer}>
+            <Text color={PAL.mute} dimColor underline>
+              {d.servers.count} dev {d.servers.count === 1 ? 'server' : 'servers'}
+            </Text>
+          </Button>
+        ) : (
+          <Text color={PAL.mute} dimColor>
+            {d.servers.count} dev servers
+          </Text>
+        )
       ) : null}
       <Text color={PAL.mute} dimColor>
         {versionLabel()}
@@ -487,20 +495,19 @@ export function band(ui: Ui, d: BandData) {
     return (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexDirection="row" gap={1} flexShrink={0}>
-          {toggle}
           <Text color={g.color}>{g.ch}</Text>
           {chips}
         </Box>
         <Box flexShrink={1}>{barRow}</Box>
+        {toggle}
       </Box>
     )
   }
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" gap={1}>
+      <Box flexDirection="row" justifyContent="flex-end">
         {toggle}
-        <Box flexShrink={1}>{rule}</Box>
       </Box>
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Box flexDirection="row" gap={2} alignSelf="flex-start" alignItems="center">
@@ -522,6 +529,7 @@ export function band(ui: Ui, d: BandData) {
         <Box flexShrink={1}>{last}</Box>
         {brand}
       </Box>
+      <Box flexDirection="row">{rule}</Box>
     </Box>
   )
 }
